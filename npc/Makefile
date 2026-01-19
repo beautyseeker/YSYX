@@ -57,7 +57,6 @@ sim: $(BIN)
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 	@echo "Write this Makefile by your self."
 	$(BIN) $(SIM_TIME)
-	gtkwave $(VCD_FILE)
 
 show:$(VCD_FILE)
 	gtkwave $(VCD_FILE)
