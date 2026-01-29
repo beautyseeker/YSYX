@@ -11,6 +11,8 @@ BUILD_DIR = ./build
 OBJ_DIR = $(BUILD_DIR)/obj_dir
 WAVE_DIR = $(BUILD_DIR)/waveforms
 BIN = $(BUILD_DIR)/$(TOPNAME)
+SIM_BIN = $(BUILD_DIR)/sim_$(MODULE)
+CPP_TB = sim/sim_$(MODULE).cpp
 
 default: $(BIN)
 
@@ -26,6 +28,7 @@ $(SRC_AUTO_BIND): $(NXDC_FILES)
 VSRCS = $(shell find $(abspath ./vsrc) -name "*.v" -o -name "*.sv")
 CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*.cpp")
 override CSRCS += $(SRC_AUTO_BIND)
+
 
 # rules for NVBoard
 include $(NVBOARD_HOME)/scripts/nvboard.mk
@@ -47,6 +50,13 @@ $(BIN): $(VSRCS) $(CSRCS) $(NVBOARD_ARCHIVE)
 		--Mdir $(OBJ_DIR) --exe -o $(abspath $(BIN))
 
 
+$(SIM_BIN): $(VSRCS) $(CPP_TB)
+	@rm -rf $(OBJ_DIR)/sim_trace
+	$(VERILATOR) $(VERILATOR_CFLAGS) --top-module $(TOPNAME) --trace \
+	--Mdir $(OBJ_DIR)/sim_trace --exe $(CPP_TB) \
+	$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
+	-o $(abspath $(SIM_BIN)) $^
+
 run: $(BIN)
 	@$^
 
@@ -57,12 +67,15 @@ clean:
 all: default
 	@echo "Write this Makefile by your self."
 
-SIM_TIME ?= 5000
 VCD_FILE ?= $(WAVE_DIR)/$(TOPNAME).vcd
-sim: $(BIN)
+sim: $(SIM_BIN)
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 	@echo "Write this Makefile by your self."
-	$(BIN) $(SIM_TIME)
+	@$^
+# 	$(VERILATOR) $(VERILATOR_CFLAGS) --top-module $(TOPNAME) --trace \
+# 	--Mdir $(OBJ_DIR)/sim_trace --exe $(CPP_TB) \
+# 	$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
+# 	-o $(BUILD_DIR)/sim_$(MODULE)
 
 show:$(VCD_FILE)
 	gtkwave $(VCD_FILE)
