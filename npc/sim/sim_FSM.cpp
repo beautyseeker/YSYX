@@ -21,10 +21,9 @@ int main(int argc, char** argv) {
     Verilated::traceEverOn(true);
     VerilatedVcdC* tfp = new VerilatedVcdC;
     top->trace(tfp, 99); // 追踪深度，99表示记录所有子模块
-    // std::string vcd_path = 
-    // "/home/passion/projects/ysyx_practice/E/E5/ysyx-workbench/npc/build/waveforms/" 
-    // + std::string(argv[0]) + ".vcd";
-    tfp->open("waveforms.vcd");
+    std::string vcd_path = std::getenv("VCD_FILE") ? 
+    std::getenv("VCD_FILE") : "waveform.vcd";
+    tfp->open(vcd_path.c_str());
 
 
     vluint64_t main_time = 0; // 仿真时间戳

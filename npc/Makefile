@@ -10,11 +10,12 @@ VERILATOR_CFLAGS += -MMD --build -cc -sv \
 BUILD_DIR = ./build
 OBJ_DIR = $(BUILD_DIR)/obj_dir
 WAVE_DIR = $(BUILD_DIR)/waveforms
-BIN = $(BUILD_DIR)/$(TOPNAME)
-SIM_BIN = $(BUILD_DIR)/sim_$(MODULE)
-CPP_TB = sim/sim_$(MODULE).cpp
 
-default: $(BIN)
+BOARD_BIN = $(BUILD_DIR)/board_$(TOPNAME)
+SIM_BIN = $(BUILD_DIR)/sim_$(MODULE)
+
+
+default: $(BOARD_BIN)
 
 $(shell mkdir -p $(BUILD_DIR)/waveforms)
 
@@ -28,6 +29,7 @@ $(SRC_AUTO_BIND): $(NXDC_FILES)
 VSRCS = $(shell find $(abspath ./vsrc) -name "*.v" -o -name "*.sv")
 CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*.cpp")
 override CSRCS += $(SRC_AUTO_BIND)
+CPP_TB = sim/sim_$(MODULE).cpp
 
 
 # rules for NVBoard
@@ -42,23 +44,37 @@ INCFLAGS = $(addprefix -I, $(INC_PATH))
 CXXFLAGS += $(INCFLAGS) -DTOP_NAME=V$(TOPNAME) -DTOP_HEADER="\"V$(TOPNAME).h\""
 CXXFLAGS += -g
 
-$(BIN): $(VSRCS) $(CSRCS) $(NVBOARD_ARCHIVE)
+$(BOARD_BIN): $(VSRCS) $(CSRCS) $(NVBOARD_ARCHIVE)
 	@rm -rf $(OBJ_DIR)
 	$(VERILATOR) $(VERILATOR_CFLAGS) \
 		--top-module $(TOPNAME) $^ \
 		$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
-		--Mdir $(OBJ_DIR) --exe -o $(abspath $(BIN))
+		--Mdir $(OBJ_DIR) --exe -o $(abspath $(BOARD_BIN))
 
 
 $(SIM_BIN): $(VSRCS) $(CPP_TB)
 	@rm -rf $(OBJ_DIR)/sim_trace
-	$(VERILATOR) $(VERILATOR_CFLAGS) --top-module $(TOPNAME) --trace \
+	$(VERILATOR) $(VERILATOR_CFLAGS) --top-module $(TOPNAME) \
 	--Mdir $(OBJ_DIR)/sim_trace --exe $(CPP_TB) \
 	$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
 	-o $(abspath $(SIM_BIN)) $^
 
-run: $(BIN)
+
+VCD_FILE ?= $(WAVE_DIR)/$(TOPNAME).vcd
+sim: $(SIM_BIN)
+	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
+	@echo "Write this Makefile by your self."
 	@$^
+
+
+show:$(SIM_BIN)
+	VCD_FILE=$(VCD_FILE) $^
+	@echo "Launching GTKWave to view waveform: $(VCD_FILE)"
+	gtkwave $(VCD_FILE)
+
+board: $(BOARD_BIN)
+	$(BOARD_BIN)
+
 
 clean:
 	rm -rf $(BUILD_DIR)
@@ -67,18 +83,6 @@ clean:
 all: default
 	@echo "Write this Makefile by your self."
 
-VCD_FILE ?= $(WAVE_DIR)/$(TOPNAME).vcd
-sim: $(SIM_BIN)
-	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-	@echo "Write this Makefile by your self."
-	@$^
-# 	$(VERILATOR) $(VERILATOR_CFLAGS) --top-module $(TOPNAME) --trace \
-# 	--Mdir $(OBJ_DIR)/sim_trace --exe $(CPP_TB) \
-# 	$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
-# 	-o $(BUILD_DIR)/sim_$(MODULE)
-
-show:$(VCD_FILE)
-	gtkwave $(VCD_FILE)
 
 include ../Makefile
 
