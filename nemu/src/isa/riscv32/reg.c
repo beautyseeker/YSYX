@@ -24,6 +24,13 @@ const char *regs[] = {
 };
 
 void isa_reg_display() {
+  printf("=== General Purpose Registers ===\n");
+  for (int i = 0; i < 32; i++) {
+    printf("%s: 0x%08x\t", reg_name(i), gpr(i));
+    if ((i + 1) % 4 == 0) {
+      printf("\n");
+    }
+  }
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {

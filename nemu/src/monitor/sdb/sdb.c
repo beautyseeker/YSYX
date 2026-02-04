@@ -18,6 +18,8 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
+#include <utils.h>
+#include <memory/paddr.h>
 
 static int is_batch_mode = false;
 
@@ -49,8 +51,85 @@ static int cmd_c(char *args) {
 
 
 static int cmd_q(char *args) {
+  nemu_state.state = NEMU_QUIT;
   return -1;
 }
+
+static int cmd_si(char *args){
+  int n;
+  if(args == NULL){
+    n = 1;
+  }
+  else {
+    char *endptr;
+    n = strtol(args, &endptr, 10);
+    if(endptr == args || *endptr != '\0' || n < 0) {
+      printf("Invalid argument: %s\n", args);
+      return 0;
+    }
+  }
+  cpu_exec(n);
+
+  return 0;
+}
+
+static int cmd_info(char *args) {
+  if(args == NULL) {
+    printf("Usage: info r/w\n");
+    return 0;
+  }
+  if(strcmp(args, "r") == 0) {
+    isa_reg_display();
+  }
+  else if(strcmp(args, "w") == 0) {
+    // wp_display();
+  }
+  else {
+    printf("Unknown argument: %s\n", args);
+  }
+  return 0;
+}
+
+static int cmd_x(char *args) {
+  if(args == NULL) {
+    printf("Usage: x N EXPR\n");
+    return 0;
+  }
+  char *arg1 = strtok(args, " ");
+  char *arg2 = strtok(NULL, " ");
+  if(arg1 == NULL || arg2 == NULL) {
+    printf("Usage: x N EXPR\n");
+    return 0;
+  }
+  char *endptr;
+  int N = strtol(arg1, &endptr, 10);
+  if(endptr == arg1 || *endptr != '\0' || N <= 0) {
+    printf("Invalid number of units: %s\n", arg1);
+    return 0;
+  }
+  // bool success;
+  // word_t addr = expr(arg2, &success);
+  // if(!success) {
+  //   printf("Invalid expression: %s\n", arg2);
+  //   return 0;
+  // }
+  vaddr_t addr = strtol(arg2, &endptr, 16);
+  if(endptr == arg2 || *endptr != '\0') {
+    printf("Invalid address expression: %s\n", arg2);
+    return 0;
+  }
+  for(int i = 0; i < N; i++) {
+    word_t data = paddr_read(addr + i * 4, 4);
+    printf(FMT_PADDR ": " FMT_WORD "\n", addr + i *4, data);
+  }
+  return 0;
+}
+
+static int cmd_si(char *args);
+
+static int cmd_info(char *args);
+
+static int cmd_x(char *args);
 
 static int cmd_help(char *args);
 
@@ -62,7 +141,12 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
+  {"si", "Step through N instructions", cmd_si },
+  {"info", "Display register or watchpoint information", cmd_info },
+  {"x", "Examine memory: x N EXPR", cmd_x },
+  {"p", "Evaluate expression: p EXPR", NULL },
+  {"w", "Set a watchpoint for an expression", NULL },
+  {"d", "Delete a watchpoint with given NO.", NULL },
   /* TODO: Add more commands */
 
 };
