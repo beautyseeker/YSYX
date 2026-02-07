@@ -125,6 +125,22 @@ static int cmd_x(char *args) {
   return 0;
 }
 
+int cmd_expr(char *args) {
+  if(args == NULL) {
+    printf("Usage: p EXPR\n");
+    return 0;
+  }
+  bool success;
+  word_t result = expr(args, &success);
+  if(!success) {
+    printf("Invalid expression: %s\n", args);
+    return 0;
+  }
+  printf( "%u\n", result);
+  return 0;
+}
+
+
 static int cmd_si(char *args);
 
 static int cmd_info(char *args);
@@ -132,6 +148,8 @@ static int cmd_info(char *args);
 static int cmd_x(char *args);
 
 static int cmd_help(char *args);
+
+int cmd_expr(char *args);
 
 static struct {
   const char *name;
@@ -144,7 +162,7 @@ static struct {
   {"si", "Step through N instructions", cmd_si },
   {"info", "Display register or watchpoint information", cmd_info },
   {"x", "Examine memory: x N EXPR", cmd_x },
-  {"p", "Evaluate expression: p EXPR", NULL },
+  {"p", "Evaluate expression: p EXPR", cmd_expr },
   {"w", "Set a watchpoint for an expression", NULL },
   {"d", "Delete a watchpoint with given NO.", NULL },
   /* TODO: Add more commands */

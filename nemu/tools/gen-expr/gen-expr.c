@@ -21,8 +21,8 @@
 #include <string.h>
 
 // this should be enough
-static char buf[65536] = {};
-static char code_buf[65536 + 128] = {}; // a little larger than `buf`
+static char expr_buf[65536] = {};
+static char code_buf[65536 + 128] = {}; // a little larger than `expr_buf`
 static char *code_format =
 "#include <stdio.h>\n"
 "int main() { "
@@ -31,9 +31,70 @@ static char *code_format =
 "  return 0; "
 "}";
 
-static void gen_rand_expr() {
-  buf[0] = '\0';
+void gen_rand_expr();
+char gen_rand_op();
+void gen(int c);
+void gen_num();
+
+void gen_num() {
+  int num = (rand() % 100)+1; // avoid zero to prevent div0
+  char num_buf[32];
+  sprintf(num_buf, "%d", num);
+  strcat(expr_buf, num_buf);
 }
+
+void gen_rand_space() {
+  int space_num = rand() % 3;
+  int len = strlen(expr_buf);
+  for (int i = 0; i < space_num; i ++) {
+    expr_buf[len + i] = ' ';
+  }
+  expr_buf[len + space_num] = '\0';
+}
+
+void gen(int c) {
+  gen_rand_space();
+  int len = strlen(expr_buf);
+  expr_buf[len] = c;
+  expr_buf[len + 1] = '\0';
+  gen_rand_space();
+}
+
+char gen_rand_op() {
+  char op = rand() % 4;
+  switch (op) {
+    case 0: gen('+'); break;
+    case 1: gen('-'); break;
+    case 2: gen('*'); break;
+    default: gen('/'); break;
+  }
+  return op;
+}
+
+
+static int depth = 0;
+void gen_rand_expr() {
+  if (depth > 5) {
+    gen_num();
+    return;
+  }
+  depth ++;
+  switch (rand() % 3) {
+    case 0: gen_num(); break;
+    case 1: gen('('); gen_rand_expr(); gen(')'); break;
+    default: 
+    gen_rand_expr(); 
+    char op = gen_rand_op();
+    // if(op == '/' )
+    //   gen_num();
+    // else
+    gen_rand_expr(); 
+    break;
+  }
+
+  depth --;
+}
+
 
 int main(int argc, char *argv[]) {
   int seed = time(0);
@@ -44,9 +105,10 @@ int main(int argc, char *argv[]) {
   }
   int i;
   for (i = 0; i < loop; i ++) {
+    expr_buf[0] = '\0';
     gen_rand_expr();
 
-    sprintf(code_buf, code_format, buf);
+    sprintf(code_buf, code_format, expr_buf);
 
     FILE *fp = fopen("/tmp/.code.c", "w");
     assert(fp != NULL);
@@ -63,7 +125,7 @@ int main(int argc, char *argv[]) {
     ret = fscanf(fp, "%d", &result);
     pclose(fp);
 
-    printf("%u %s\n", result, buf);
+    printf("%u %s\n", result, expr_buf);
   }
   return 0;
 }
