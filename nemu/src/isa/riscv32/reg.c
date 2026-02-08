@@ -34,5 +34,13 @@ void isa_reg_display() {
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
-  return 0;
+  for (int reg_idx = 0; reg_idx < 32; reg_idx++) {
+    if (strcmp(s, regs[reg_idx]) == 0) {
+      *success = true;
+      return gpr(reg_idx);
+    }
+  }
+  *success = false;
+  printf("Invalid register name:\\$%s\n", s);
+  return -1;
 }

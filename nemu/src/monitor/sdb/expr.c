@@ -22,10 +22,22 @@
 
 enum {
   TK_NOTYPE = 256, 
-  TK_EQ,
+  TK_EQ = 255,
+  TK_NE = 254,
+  TK_AND = 253,
+  TK_NEG = 252,
+  TK_REG = 251,
+  TK_DEREF = 250,
 
   /* TODO: Add more token types */
 
+};
+
+enum {
+  /* Precedence levels of the operators */
+  unary = 1,
+  binary = 2,
+  ternary = 3,
 };
 
 static struct rule {
@@ -44,9 +56,12 @@ static struct rule {
   {"\\/", '/'},        // divide
   {"\\(", '('},        // left parenthesis
   {"\\)", ')'},        // right parenthesis
-  // {"==", '-'},        // equal
+  {"\\=\\=", TK_EQ},        // equal
+  {"\\!\\=", TK_NE},        // not equal
+  {"\\&\\&", TK_AND},        // and
   {"[0-9]+", 'd'},    // decimal number
   {"0x[0-9a-fA-F]+", 'h'}, // hexadecimal number
+  {"\\$[a-zA-Z0-9]+", TK_REG}, // register
 
 };
 
@@ -58,6 +73,7 @@ static int get_priority(int type);
 static int find_main_op(int p, int q);
 static bool check_parentheses(int p, int q); 
 static u_int32_t eval(int p, int q, bool *success);
+extern word_t isa_reg_str2val(const char *s, bool *success);
 // static void preprocess();
 
 
@@ -131,6 +147,21 @@ static bool make_token(char *e) {
       printf("no match at position %d\n%s\n%*.s^\n", position, e, position, "");
       return false;
     }
+
+    // 新增逻辑：区分单目运算符（负号）和双目运算符（减号）
+    for (int i = 0; i < nr_token; i ++) {
+      if (tokens[i].type == '-') {
+        // 这里的 '-' 既可能是减号，也可能是负号
+        // 如果处于表达式开头，或者是紧跟在另一个运算符/左括号之后，则是负号
+        if (i == 0 || (tokens[i - 1].type != 'd' 
+          && tokens[i - 1].type != 'h' && tokens[i - 1].type != ')' 
+          && tokens[i - 1].type != TK_REG)) {
+          tokens[i].type = TK_NEG;
+        }
+      }
+      // 如果后续需要支持指针解引用 *，逻辑是一样的：
+      // if (tokens[i].type == '*') { ...判断逻辑同上... tokens[i].type = TK_DEREF; }
+    }
   }
 
   return true;
@@ -160,7 +191,7 @@ u_int32_t eval(int p, int q, bool *success) {
 
   }
   else if (p == q) {
-    // Single token.
+    // 单token递归基
     if (tokens[p].type == 'd') {
       return (u_int32_t)atoi(tokens[p].str);
     }
@@ -178,28 +209,42 @@ u_int32_t eval(int p, int q, bool *success) {
     }
   }
   else if (check_parentheses(p, q) == true) {
-    // The expression is surrounded by a matched pair of parentheses.
+    // 外层去括号处理
     return eval(p + 1, q - 1, success);
   }
 
   else {
+    // 表达式一元运算符处理
+    switch (tokens[p].type) {
+      case TK_NEG:
+        return 0 - eval(p + 1, q, success);
+      case TK_REG:
+        bool reg_success;
+        u_int32_t reg_val = isa_reg_str2val(tokens[p].str + 1, &reg_success);
+        return reg_success ? reg_val : 0;
+      default: break;
+    }
+
+    // 表达式二元运算符处理
     int op = find_main_op(p, q);
-    u_int32_t a = eval(p, op-1, success);
+    // int op_type = tokens[op].type;
+
+    u_int32_t left = eval(p, op-1, success);
     if(*success == false) return 0;
-    u_int32_t b = eval(op+1, q, success);
+    u_int32_t right = eval(op+1, q, success);
     if(*success == false) return 0;
     switch (tokens[op].type) {
-      case '+': return a + b;
-      case '-': return a - b;
-      case '*': return a * b;
+      case '+': return left + right;
+      case '-': return left - right;
+      case '*': return left * right;
       case '/': 
-        if(b == 0) {
+        if(right == 0) {
           Assert(0, "Division by zero:\n"
-          "a=%u, b=%u\n", a, b);
+          "a=%u, b=%u\n", left, right);
           *success = false;
           return 0;
         }
-        return a / b;
+        return left / right;
       default: 
         *success = false;
         printf("Invalid operator: %c", tokens[op].type);
@@ -210,7 +255,7 @@ u_int32_t eval(int p, int q, bool *success) {
 }
 
 int find_main_op(int p, int q) {
-  int min_prio = 1000;
+  int priorest = 0;
   int main_op = p;
   int parentheses = 0;
   for (int i = p; i <= q; i++) {
@@ -219,8 +264,8 @@ int find_main_op(int p, int q) {
     else if (tokens[i].type == ')') parentheses--;
     else if (parentheses == 0) {
       int prio = get_priority(tokens[i].type);
-      if (prio <= min_prio) {
-        min_prio = prio;
+      if (prio >= priorest) {  // 主运算符为最低优先级里最靠右的
+        priorest = prio;
         main_op = i;
       }
     }
@@ -234,12 +279,18 @@ int find_main_op(int p, int q) {
 
 int get_priority(int type) {
   switch (type) {
-    case '+':
-    case '-':
-      return 1;
     case '*':
     case '/':
-      return 2;
+      return 3;
+    case '+':
+    case '-':
+      return 4;
+    case TK_EQ:
+    case TK_NE:
+      return 7;
+    case TK_AND:
+      return 11;
+
     default:return -1;
   }
   return -1; // 非运算符
@@ -253,8 +304,7 @@ word_t expr(char *e, bool *success) {
     return 0;
   }
 
-  word_t result = 0;
-  result = eval(0, nr_token - 1, success);
+  word_t result = eval(0, nr_token - 1, success);
 
   return result;
 }
