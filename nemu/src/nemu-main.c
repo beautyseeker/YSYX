@@ -14,6 +14,7 @@
 ***************************************************************************************/
 
 #include <common.h>
+#define CONFIG_EXPR_TEST 1  // 手动强开
 
 void init_monitor(int, char *[]);
 void am_init_monitor();
@@ -27,6 +28,10 @@ int main(int argc, char *argv[]) {
   am_init_monitor();
 #else
   init_monitor(argc, argv);
+#endif
+
+#ifdef CONFIG_EXPR_TEST
+  Log("====================    Expression test starts    =========================\n");
   FILE *fp = fopen("./tools/gen-expr/input", "r");
   FILE *log_fp = fopen("unmatch_log.txt", "w");
   Assert(fp != NULL && log_fp != NULL, "Can not open input file:./tools/gen-expr/input");
@@ -34,6 +39,7 @@ int main(int argc, char *argv[]) {
   unsigned result_gold;
   bool success;
   char line[1024];
+  int passed = 0, failed = 0, total = 0;
   while (fgets(line, sizeof(line), fp)) {
     // 跳过空行
     if (line[0] == '\n' || line[0] == '\0') continue;
@@ -44,15 +50,23 @@ int main(int argc, char *argv[]) {
     unsigned result = expr(args, &success);
     if(result == result_gold) {
       // printf("Pass:expr: %s, result: %u\n", expr_str, result);
+      passed++;
     }
     else {
+      Log(ANSI_FG_RED "Fail:expr: %s, result: %u, expected: %u" ANSI_NONE, 
+          expr_str, result, result_gold);
       fprintf(log_fp, "expr: %s, result: %u, expected: %u\n", 
         expr_str, result, result_gold);
       fflush(log_fp);
+      failed++;
     }
+    total++;
   }
   fclose(fp);
   fclose(log_fp);
+  Log(ANSI_FG_BLUE "Total: %d, " ANSI_FG_GREEN "Passed: %d, " ANSI_FG_RED "Failed: %d" ANSI_NONE, 
+    total, passed, failed);
+  Log("====================    Expression test ends    =========================\n");
 #endif
 
   /* Start engine. */

@@ -29,12 +29,9 @@ enum {
   TK_REG = 251,
   TK_DEREF = 250,
 
-  /* TODO: Add more token types */
-
 };
 
 enum {
-  /* Precedence levels of the operators */
   unary = 1,
   binary = 2,
   ternary = 3,
@@ -68,11 +65,12 @@ static struct rule {
 #define NR_REGEX ARRLEN(rules)
 
 static regex_t re[NR_REGEX] = {};
+static char expr_buf[65536] = {};
 
 static int get_priority(int type);
 static int find_main_op(int p, int q);
 static bool check_parentheses(int p, int q); 
-static u_int32_t eval(int p, int q, bool *success);
+static int32_t eval(int p, int q, bool *success);
 extern word_t isa_reg_str2val(const char *s, bool *success);
 // static void preprocess();
 
@@ -121,11 +119,6 @@ static bool make_token(char *e) {
 
         position += substr_len;
 
-        /* TODO: Now a new token is recognized with rules[i]. Add codes
-         * to record the token in the array `tokens'. For certain types
-         * of tokens, some extra actions should be performed.
-         */
-
         switch (rules[i].token_type) {
           case TK_NOTYPE:
             break;
@@ -147,21 +140,19 @@ static bool make_token(char *e) {
       printf("no match at position %d\n%s\n%*.s^\n", position, e, position, "");
       return false;
     }
-
-    // 新增逻辑：区分单目运算符（负号）和双目运算符（减号）
-    for (int i = 0; i < nr_token; i ++) {
-      if (tokens[i].type == '-') {
-        // 这里的 '-' 既可能是减号，也可能是负号
-        // 如果处于表达式开头，或者是紧跟在另一个运算符/左括号之后，则是负号
-        if (i == 0 || (tokens[i - 1].type != 'd' 
-          && tokens[i - 1].type != 'h' && tokens[i - 1].type != ')' 
-          && tokens[i - 1].type != TK_REG)) {
-          tokens[i].type = TK_NEG;
-        }
+  }
+  // 新增逻辑：区分单目运算符（负号）和双目运算符（减号）
+  for (int i = 0; i < nr_token; i ++) {
+    if (tokens[i].type == '-') {
+      // 这里的 '-' 既可能是减号，也可能是负号
+      // 如果处于表达式开头，或者是紧跟在另一个运算符/左括号之后，则是负号
+      if(i == 0 || (tokens[i-1].type != 'd' 
+        && tokens[i-1].type != 'h' && tokens[i-1].type != ')')) {
+        tokens[i].type = TK_NEG;
       }
-      // 如果后续需要支持指针解引用 *，逻辑是一样的：
-      // if (tokens[i].type == '*') { ...判断逻辑同上... tokens[i].type = TK_DEREF; }
     }
+    // 如果后续需要支持指针解引用 *，逻辑是一样的：
+    // if (tokens[i].type == '*') { ...判断逻辑同上... tokens[i].type = TK_DEREF; }
   }
 
   return true;
@@ -178,33 +169,30 @@ bool check_parentheses(int p, int q) {
   return cnt == 0;
 }
 
-u_int32_t eval(int p, int q, bool *success) {
+int32_t eval(int p, int q, bool *success) {
   if(*success == false) return 0;
 
   if (p > q) {
     *success = false;
-    Assert(0, "Bad expression:\n"
-    "p_type=%d, p_str=%s, op=%c\n"
-    "q_type=%d, q_str=%s, op=%c\n",
-    tokens[p].type, tokens[p].str, p, 
-    tokens[q].type, tokens[q].str, q);
+    Assert(0, "Bad expression:%s\n", expr_buf);
 
   }
   else if (p == q) {
     // 单token递归基
     if (tokens[p].type == 'd') {
-      return (u_int32_t)atoi(tokens[p].str);
+      return (int32_t)atoi(tokens[p].str);
     }
     else if (tokens[p].type == 'h') {
-      return (u_int32_t)strtol(tokens[p].str, NULL, 16);
+      return (int32_t)strtol(tokens[p].str, NULL, 16);
+    }
+    else if (tokens[p].type == TK_REG) {
+      bool reg_success;
+      int32_t reg_val = isa_reg_str2val(tokens[p].str + 1, &reg_success);
+      return reg_success ? reg_val : 0;
     }
     else {
     *success = false;
-    Assert(0, "Bad expression:\n"
-    "p_type=%d, p_str=%s, op=%d\n"
-    "q_type=%d, q_str=%s, op=%d\n",
-    tokens[p].type, tokens[p].str, p, 
-    tokens[q].type, tokens[q].str, q);
+    Assert(0, "Bad expression:%s\n", expr_buf);
     return 0;
     }
   }
@@ -214,55 +202,54 @@ u_int32_t eval(int p, int q, bool *success) {
   }
 
   else {
-    // 表达式一元运算符处理
-    switch (tokens[p].type) {
-      case TK_NEG:
-        return 0 - eval(p + 1, q, success);
-      case TK_REG:
-        bool reg_success;
-        u_int32_t reg_val = isa_reg_str2val(tokens[p].str + 1, &reg_success);
-        return reg_success ? reg_val : 0;
-      default: break;
-    }
-
     // 表达式二元运算符处理
     int op = find_main_op(p, q);
-    // int op_type = tokens[op].type;
-
-    u_int32_t left = eval(p, op-1, success);
-    if(*success == false) return 0;
-    u_int32_t right = eval(op+1, q, success);
-    if(*success == false) return 0;
-    switch (tokens[op].type) {
-      case '+': return left + right;
-      case '-': return left - right;
-      case '*': return left * right;
-      case '/': 
-        if(right == 0) {
-          Assert(0, "Division by zero:\n"
-          "a=%u, b=%u\n", left, right);
+    if(op == -1) {  
+      // 二元运算符没找到才去处理一元运算符
+      switch (tokens[p].type) {
+        case TK_NEG:
+          return *success ? - eval(p + 1, q, success): 0;
+        default: break;
+      }
+    }
+    else{
+      int32_t left = eval(p, op-1, success);
+      if(*success == false) return 0;
+      int32_t right = eval(op+1, q, success);
+      if(*success == false) return 0;
+      switch (tokens[op].type) {
+        case '+': return left + right;
+        case '-': return left - right;
+        case '*': return left * right;
+        case '/': 
+          if(right == 0) {
+            // Assert(0, "Division by zero:%s\n", expr_buf);
+            *success = false;
+            return 0;
+          }
+          return left / right;
+        default: 
           *success = false;
+          printf("Invalid operator: %c", tokens[op].type);
           return 0;
-        }
-        return left / right;
-      default: 
-        *success = false;
-        printf("Invalid operator: %c", tokens[op].type);
-        return 0;
+      }
     }
   }
   return 0;
 }
 
 int find_main_op(int p, int q) {
-  int priorest = 0;
-  int main_op = p;
+  int priorest = -1; // 修改：初始优先级设为无效
+  int main_op = -1;  // 修改：默认没找到主运算符
   int parentheses = 0;
   for (int i = p; i <= q; i++) {
-    if(tokens[i].type == 'd' || tokens[i].type == 'h') continue;
     if (tokens[i].type == '(') parentheses++;
     else if (tokens[i].type == ')') parentheses--;
     else if (parentheses == 0) {
+      if(tokens[i].type != '+' && tokens[i].type != '-' 
+        && tokens[i].type != '*' && tokens[i].type != '/' 
+        && tokens[i].type != TK_EQ && tokens[i].type != TK_NE 
+        && tokens[i].type != TK_AND) continue;
       int prio = get_priority(tokens[i].type);
       if (prio >= priorest) {  // 主运算符为最低优先级里最靠右的
         priorest = prio;
@@ -271,9 +258,6 @@ int find_main_op(int p, int q) {
     }
   }
   Assert(parentheses == 0, "Unmatched parentheses");
-  Assert(main_op<q && main_op>=p, 
-    "main operator error, op_type=%d, op_str=%s, main_op=%c",
-    tokens[main_op].type, tokens[main_op].str, main_op);
   return main_op;
 }
 
@@ -296,9 +280,10 @@ int get_priority(int type) {
   return -1; // 非运算符
 }
 
-
 word_t expr(char *e, bool *success) {
   *success = true;
+  strncpy(expr_buf, e, sizeof(expr_buf) - 1);
+  expr_buf[sizeof(expr_buf) - 1] = '\0';
   if (!make_token(e)) {
     *success = false;
     return 0;

@@ -79,12 +79,19 @@ void gen_rand_expr() {
     return;
   }
   depth ++;
-  switch (rand() % 3) {
+  switch (rand() % 4) {
     case 0: gen_num(); break;
     case 1: gen('('); gen_rand_expr(); gen(')'); break;
+    case 2: 
+      int len = strlen(expr_buf);
+      char last_char = len > 1 ? expr_buf[len - 1] : '\0';
+      if (last_char != ')' && (last_char < '0' || last_char > '9')) {
+        gen('-'); gen_rand_expr();
+      }
+       break;
     default: 
     gen_rand_expr(); 
-    char op = gen_rand_op();
+    gen_rand_op();
     // if(op == '/' )
     //   gen_num();
     // else
