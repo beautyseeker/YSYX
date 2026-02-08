@@ -40,6 +40,10 @@ word_t isa_reg_str2val(const char *s, bool *success) {
       return gpr(reg_idx);
     }
   }
+  if(strcmp(s, "pc") == 0) {
+    *success = true;
+    return cpu.pc;
+  }
   *success = false;
   printf("Invalid register name:\\$%s\n", s);
   return -1;

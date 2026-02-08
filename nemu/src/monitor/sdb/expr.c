@@ -19,6 +19,7 @@
  * Type 'man regex' for more information about POSIX regex functions.
  */
 #include <regex.h>
+#include <stdbool.h>
 
 enum {
   TK_NOTYPE = 256, 
@@ -28,6 +29,10 @@ enum {
   TK_NEG = 252,
   TK_REG = 251,
   TK_DEREF = 250,
+  TK_LESS = 249,
+  TK_LESSEQ = 248,
+  TK_GREATER = 247,
+  TK_GREATEREQ = 246,
 
 };
 
@@ -42,23 +47,27 @@ static struct rule {
   int token_type;
 } rules[] = {
 
-  /* TODO: Add more rules.
-   * Pay attention to the precedence level of different rules.
-   */
+  {"0x[0-9a-fA-F]+", 'h'}, // hexadecimal number
+  {"\\$[a-zA-Z0-9]+", TK_REG}, // register
 
-  {" +", TK_NOTYPE},    // spaces
+  {"==", TK_EQ},        // equal
+  {"!=", TK_NE},        // not equal
+  {"<", TK_LESS},        // less than
+  {"<=", TK_LESSEQ},    // less than or equal
+  {">", TK_GREATER},      // greater than
+  {">=", TK_GREATEREQ}, // greater than or equal
+  {"&&", TK_AND},        // and
+
   {"\\+", '+'},         // plus
   {"\\-", '-'},        // minus
   {"\\*", '*'},        // multiply
   {"\\/", '/'},        // divide
   {"\\(", '('},        // left parenthesis
   {"\\)", ')'},        // right parenthesis
-  {"\\=\\=", TK_EQ},        // equal
-  {"\\!\\=", TK_NE},        // not equal
-  {"\\&\\&", TK_AND},        // and
+
+  {" +", TK_NOTYPE},    // spaces
   {"[0-9]+", 'd'},    // decimal number
-  {"0x[0-9a-fA-F]+", 'h'}, // hexadecimal number
-  {"\\$[a-zA-Z0-9]+", TK_REG}, // register
+
 
 };
 
@@ -72,6 +81,7 @@ static int find_main_op(int p, int q);
 static bool check_parentheses(int p, int q); 
 static int32_t eval(int p, int q, bool *success);
 extern word_t isa_reg_str2val(const char *s, bool *success);
+extern word_t paddr_read(paddr_t addr, int len);
 // static void preprocess();
 
 
@@ -144,15 +154,18 @@ static bool make_token(char *e) {
   // 新增逻辑：区分单目运算符（负号）和双目运算符（减号）
   for (int i = 0; i < nr_token; i ++) {
     if (tokens[i].type == '-') {
-      // 这里的 '-' 既可能是减号，也可能是负号
-      // 如果处于表达式开头，或者是紧跟在另一个运算符/左括号之后，则是负号
+      // 一元运算符前面不能是操作数或右括号
       if(i == 0 || (tokens[i-1].type != 'd' 
         && tokens[i-1].type != 'h' && tokens[i-1].type != ')')) {
         tokens[i].type = TK_NEG;
       }
     }
-    // 如果后续需要支持指针解引用 *，逻辑是一样的：
-    // if (tokens[i].type == '*') { ...判断逻辑同上... tokens[i].type = TK_DEREF; }
+    else if (tokens[i].type == '*') {
+      if(i == 0 || (tokens[i-1].type != 'd' 
+        && tokens[i-1].type != 'h' && tokens[i-1].type != ')')) {
+        tokens[i].type = TK_DEREF;
+      }
+    }
   }
 
   return true;
@@ -209,6 +222,10 @@ int32_t eval(int p, int q, bool *success) {
       switch (tokens[p].type) {
         case TK_NEG:
           return *success ? - eval(p + 1, q, success): 0;
+        case TK_DEREF: {
+          word_t addr = *success ? eval(p + 1, q, success) : 0;
+          return *success ? paddr_read(addr, 4) : 0;
+        }
         default: break;
       }
     }
@@ -228,6 +245,13 @@ int32_t eval(int p, int q, bool *success) {
             return 0;
           }
           return left / right;
+        case TK_EQ: return left == right;
+        case TK_NE: return left != right;
+        case TK_AND: return left && right;
+        case TK_LESS: return left < right;
+        case TK_LESSEQ: return left <= right;
+        case TK_GREATER: return left > right;
+        case TK_GREATEREQ: return left >= right;
         default: 
           *success = false;
           printf("Invalid operator: %c", tokens[op].type);
@@ -249,7 +273,9 @@ int find_main_op(int p, int q) {
       if(tokens[i].type != '+' && tokens[i].type != '-' 
         && tokens[i].type != '*' && tokens[i].type != '/' 
         && tokens[i].type != TK_EQ && tokens[i].type != TK_NE 
-        && tokens[i].type != TK_AND) continue;
+        && tokens[i].type != TK_AND && tokens[i].type != TK_LESS
+        && tokens[i].type != TK_LESSEQ && tokens[i].type != TK_GREATER
+        && tokens[i].type != TK_GREATEREQ) continue;
       int prio = get_priority(tokens[i].type);
       if (prio >= priorest) {  // 主运算符为最低优先级里最靠右的
         priorest = prio;
@@ -274,7 +300,11 @@ int get_priority(int type) {
       return 7;
     case TK_AND:
       return 11;
-
+    case TK_LESS:
+    case TK_LESSEQ:
+    case TK_GREATER:
+    case TK_GREATEREQ:
+      return 8;
     default:return -1;
   }
   return -1; // 非运算符
