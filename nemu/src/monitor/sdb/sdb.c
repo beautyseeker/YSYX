@@ -26,6 +26,20 @@ static int is_batch_mode = false;
 void init_regex();
 void init_wp_pool();
 
+static int cmd_si(char *args);
+
+static int cmd_info(char *args);
+
+static int cmd_x(char *args);
+
+static int cmd_help(char *args);
+
+int cmd_expr(char *args);
+
+int cmd_w(char *args);
+
+int cmd_d(char *args);
+
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
   static char *line_read = NULL;
@@ -82,7 +96,7 @@ static int cmd_info(char *args) {
     isa_reg_display();
   }
   else if(strcmp(args, "w") == 0) {
-    // wp_display();
+    wp_list_show();
   }
   else {
     printf("Unknown argument: %s\n", args);
@@ -135,16 +149,42 @@ int cmd_expr(char *args) {
   return 0;
 }
 
+int cmd_w(char *args) {
+  if(args == NULL) {
+    printf("Usage: w EXPR\n");
+    return 0;
+  }
+  WP* wp = new_wp();
+  strncpy(wp->expr, args, sizeof(wp->expr) - 1);
+  wp->expr[sizeof(wp->expr) - 1] = '\0';
+  bool success;
+  wp->last_value = expr(wp->expr, &success);
+  if(!success) {
+    Log("Failed to evaluate watchpoint %d expression: %s\n",
+        wp->NO, wp->expr);
+    free_wp(wp);
+    return 0;
+  }
+  wp_display(wp);
+  return 0;
+}
 
-static int cmd_si(char *args);
-
-static int cmd_info(char *args);
-
-static int cmd_x(char *args);
-
-static int cmd_help(char *args);
-
-int cmd_expr(char *args);
+int cmd_d(char *args) {
+  if(args == NULL) {
+    printf("Usage: d NO\n");
+    return 0;
+  }
+  char *endptr;
+  int NO = strtol(args, &endptr, 10);
+  if(endptr == args || *endptr != '\0' || NO < 0) {
+    printf("Invalid watchpoint number: %s\n", args);
+    return 0;
+  }
+  if (free_wp_by_no(NO) == 0) {
+    printf("Deleted watchpoint %d\n", NO);
+  }
+  return 0;
+} 
 
 static struct {
   const char *name;
@@ -158,8 +198,8 @@ static struct {
   {"info", "Display register or watchpoint information", cmd_info },
   {"x", "Examine memory: x N EXPR", cmd_x },
   {"p", "Evaluate expression: p EXPR", cmd_expr },
-  {"w", "Set a watchpoint for an expression", NULL },
-  {"d", "Delete a watchpoint with given NO.", NULL },
+  {"w", "Set a watchpoint for an expression", cmd_w },
+  {"d", "Delete a watchpoint with given NO.", cmd_d },
   /* TODO: Add more commands */
 
 };

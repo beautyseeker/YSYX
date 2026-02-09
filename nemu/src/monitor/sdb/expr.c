@@ -199,9 +199,8 @@ int32_t eval(int p, int q, bool *success) {
       return (int32_t)strtol(tokens[p].str, NULL, 16);
     }
     else if (tokens[p].type == TK_REG) {
-      bool reg_success;
-      int32_t reg_val = isa_reg_str2val(tokens[p].str + 1, &reg_success);
-      return reg_success ? reg_val : 0;
+      int32_t reg_val = isa_reg_str2val(tokens[p].str + 1, success);
+      return *success ? reg_val : 0;
     }
     else {
     *success = false;

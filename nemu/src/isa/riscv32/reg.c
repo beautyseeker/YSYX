@@ -34,6 +34,11 @@ void isa_reg_display() {
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
+  if(s[0] == '\0') {
+    *success = false;
+    Log(ANSI_FG_RED "Empty register name\n" ANSI_NONE);
+    return -1;
+  }
   for (int reg_idx = 0; reg_idx < 32; reg_idx++) {
     if (strcmp(s, regs[reg_idx]) == 0) {
       *success = true;
@@ -45,6 +50,6 @@ word_t isa_reg_str2val(const char *s, bool *success) {
     return cpu.pc;
   }
   *success = false;
-  printf("Invalid register name:\\$%s\n", s);
+  Log(ANSI_FG_RED "Invalid register name:\\$%s\n" ANSI_NONE, s);
   return -1;
 }

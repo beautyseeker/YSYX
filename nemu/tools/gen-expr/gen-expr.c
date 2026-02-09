@@ -33,7 +33,7 @@ static char *code_format =
 
 void gen_rand_expr();
 char gen_rand_op();
-void gen(int c);
+void gen(int c, int gen_space);
 void gen_num();
 
 void gen_num() {
@@ -44,7 +44,7 @@ void gen_num() {
 }
 
 void gen_rand_space() {
-  int space_num = rand() % 3;
+  int space_num = rand() % 2;
   int len = strlen(expr_buf);
   for (int i = 0; i < space_num; i ++) {
     expr_buf[len + i] = ' ';
@@ -52,21 +52,24 @@ void gen_rand_space() {
   expr_buf[len + space_num] = '\0';
 }
 
-void gen(int c) {
-  gen_rand_space();
+void gen(int c, int gen_space) {
+  if (gen_space) gen_rand_space();
   int len = strlen(expr_buf);
   expr_buf[len] = c;
   expr_buf[len + 1] = '\0';
-  gen_rand_space();
+  if (gen_space) gen_rand_space();
 }
 
 char gen_rand_op() {
-  char op = rand() % 4;
+  char op = rand() % 7;
   switch (op) {
-    case 0: gen('+'); break;
-    case 1: gen('-'); break;
-    case 2: gen('*'); break;
-    default: gen('/'); break;
+    case 0: gen('+', 1); break;
+    case 1: gen('-', 1); break;
+    case 2: gen('*', 1); break;
+    case 3: gen('/', 1); break;
+    case 4: gen('&', 0); gen('&', 0); break;
+    case 5: gen('=', 0); gen('=', 0); break;
+    default: gen('!', 0); gen('=', 0); break;
   }
   return op;
 }
@@ -81,12 +84,12 @@ void gen_rand_expr() {
   depth ++;
   switch (rand() % 4) {
     case 0: gen_num(); break;
-    case 1: gen('('); gen_rand_expr(); gen(')'); break;
+    case 1: gen('(', 1); gen_rand_expr(); gen(')', 1); break;
     case 2: 
       int len = strlen(expr_buf);
       char last_char = len > 1 ? expr_buf[len - 1] : '\0';
       if (last_char != ')' && (last_char < '0' || last_char > '9')) {
-        gen('-'); gen_rand_expr();
+        gen('-', 1); gen_rand_expr();
       }
        break;
     default: 
