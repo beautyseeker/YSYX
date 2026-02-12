@@ -1,44 +1,35 @@
 #include <iostream>
 #include <vector>
 #include <iomanip>
+#include "Vtop_barrel_shifter.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h" // 【关键步骤 1】引入波形头文件
-#include "verilated.h"
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
 
-// 移除硬编码的 #include "Vtop.h"
-// 使用 Makefile 中定义的动态宏
-#include TOSTRING(TOP_HEADER) 
+#define SIM_CYCLES 10000
 
 int main(int argc, char** argv) {
-    std::cout << "Compiled SIM_CYCLES: " << SIM_CYCLES << std::endl;
     Verilated::commandArgs(argc, argv);
-    Vtop_FSM* top = new Vtop_FSM;
+    Vtop_barrel_shifter* top = new Vtop_barrel_shifter;
 
     // 【关键步骤 2】开启追踪功能
     Verilated::traceEverOn(true);
     VerilatedVcdC* tfp = new VerilatedVcdC;
     top->trace(tfp, 99); // 追踪深度，99表示记录所有子模块
-    std::string vcd_path = std::getenv("VCD_FILE") ? 
-    std::getenv("VCD_FILE") : "waveform.vcd";
-    tfp->open(vcd_path.c_str());
+    tfp->open("waveform.vcd"); // 保存的文件名
 
-
+    std::vector<int> distribution(256, 0);
     vluint64_t main_time = 0; // 仿真时间戳
 
     // 1. 复位系统
     top->clk = 0;
     top->rst = 0;
-    top->in = 0;
+    top->seed = 0x12;
     top->eval();
     tfp->dump(main_time++); // 【关键步骤 3】记录当前时刻波形
 
     top->clk = 1; top->eval();
     top->rst = 1; top->eval();
     tfp->dump(main_time++);
-
-    int cnt = 1;
 
     // 2. 运行仿真
     std::cout << "Starting simulation..." << std::endl;
@@ -51,11 +42,10 @@ int main(int argc, char** argv) {
         // 时钟上升沿
         top->clk = 1; 
         top->eval();
-        top->in = rand() % 2; // 随机输入
-
         tfp->dump(main_time++);
 
-        uint8_t val = top->out;
+        uint8_t val = top->dout;
+        distribution[val]++;
     }
 
     // ... (打印统计结果的代码保持不变) ...

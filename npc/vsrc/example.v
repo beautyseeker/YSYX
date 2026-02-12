@@ -1,11 +1,25 @@
-module counter(
-  input clk,
-  input rst,
-  input en,
-  output reg [1:0] count
+module example(
+  input        a,
+  input        b,
+  output       y
 );
-  always @(posedge clk) begin
-    if (rst) count <= 2'd0;
-    else if (en) count <= count + 2'd1;
-  end
+
+assign y = a ^ b;
+
+endmodule
+
+module top_example (
+  input       clk,
+  input       rst,
+  input        a,
+  input        b,
+  output       y
+);
+
+  example u_example (
+    .a(a),
+    .b(b),
+    .y(y)
+);
+  
 endmodule
