@@ -122,8 +122,9 @@ static int cmd_x(char *args) {
     return 0;
   }
 
-  vaddr_t addr = strtol(arg2, &endptr, 16);
-  if(endptr == arg2 || *endptr != '\0') {
+  bool success;
+  vaddr_t addr = expr(arg2, &success);
+  if(!success) {
     printf("Invalid address expression: %s\n", arg2);
     return 0;
   }
