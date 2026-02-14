@@ -40,6 +40,8 @@ int cmd_w(char *args);
 
 int cmd_d(char *args);
 
+int cmd_b(char *hex_addr);
+
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
   static char *line_read = NULL;
@@ -146,7 +148,12 @@ int cmd_expr(char *args) {
     printf("Invalid expression: %s\n", args);
     return 0;
   }
-  printf( "%u\n", result);
+  if(args[0] == '$' || (args[0] == '0' && args[1] == 'x')) {
+    printf(FMT_WORD "\n", result);
+  }
+  else {
+    printf( "%u\n", result);
+  }
   return 0;
 }
 
@@ -167,6 +174,21 @@ int cmd_w(char *args) {
     return 0;
   }
   wp_display(wp);
+  return 0;
+}
+
+int cmd_b(char *hex_addr) {
+  if(hex_addr == NULL) {
+    printf("Usage: b EXPR\n");
+    return 0;
+  }
+  if(hex_addr[0] != '0' || hex_addr[1] != 'x') {
+    printf("Only hexadecimal address is supported for breakpoints.\n");
+    return 0;
+  }
+  char expr_buf[256];
+  snprintf(expr_buf, sizeof(expr_buf), "$pc==%s", hex_addr);
+  cmd_w(expr_buf);
   return 0;
 }
 
@@ -201,6 +223,7 @@ static struct {
   {"p", "Evaluate expression: p EXPR", cmd_expr },
   {"w", "Set a watchpoint for an expression", cmd_w },
   {"d", "Delete a watchpoint with given NO.", cmd_d },
+  {"b", "Set a breakpoint at given hexadecimal address", cmd_b },
   /* TODO: Add more commands */
 
 };
