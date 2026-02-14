@@ -14,7 +14,6 @@
 ***************************************************************************************/
 
 #include <common.h>
-#define CONFIG_EXPR_TEST 1  // 手动强开
 
 void init_monitor(int, char *[]);
 void am_init_monitor();
