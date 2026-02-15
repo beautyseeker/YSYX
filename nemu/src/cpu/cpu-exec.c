@@ -30,10 +30,17 @@ CPU_state cpu = {};
 uint64_t g_nr_guest_inst = 0;
 static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
+static char iring_buf[32][128];
 
 void device_update();
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
+#ifdef CONFIG_FTRACE
+  extern void ftrace_hook(vaddr_t pc);
+  ftrace_hook(_this->pc);
+#endif
+
+
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
 #endif
@@ -72,6 +79,8 @@ static void exec_once(Decode *s, vaddr_t pc) {
   void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
   disassemble(p, s->logbuf + sizeof(s->logbuf) - p,
       MUXDEF(CONFIG_ISA_x86, s->snpc, s->pc), (uint8_t *)&s->isa.inst, ilen);
+  
+  memmove(iring_buf[g_nr_guest_inst % ARRLEN(iring_buf)], s->logbuf, sizeof(s->logbuf));
 #endif
 }
 
@@ -84,6 +93,18 @@ static void execute(uint64_t n) {
     if (nemu_state.state != NEMU_RUNNING) break;
     IFDEF(CONFIG_DEVICE, device_update());
   }
+}
+
+static void print_iring() {
+  int i;
+  int n = ARRLEN(iring_buf);
+  int start = g_nr_guest_inst % n;
+  printf(ANSI_FMT("--------------Instruction Ring Buffer (last %d instructions)-------------:\n", 
+  ANSI_FG_CYAN), n);
+  for (i = 0; i < n; i++) {
+    printf(ANSI_FMT("%s\n", ANSI_FG_YELLOW), iring_buf[(start + i) % n]);
+  }
+  printf(ANSI_FMT("--------------End of Instruction Ring Buffer-------------\n", ANSI_FG_CYAN));
 }
 
 static void statistic() {
@@ -126,6 +147,9 @@ void cpu_exec(uint64_t n) {
            (nemu_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) :
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           nemu_state.halt_pc);
+      if(CONFIG_ITRACE && nemu_state.halt_ret != 0) {
+        print_iring();
+      }
       // fall through
     case NEMU_QUIT: statistic();
   }
