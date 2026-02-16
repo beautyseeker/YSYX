@@ -82,7 +82,6 @@ static bool check_parentheses(int p, int q);
 static int32_t eval(int p, int q, bool *success);
 extern word_t isa_reg_str2val(const char *s, bool *success);
 extern word_t paddr_read(paddr_t addr, int len);
-// static void preprocess();
 
 
 /* Rules are used for many times.
@@ -321,4 +320,43 @@ word_t expr(char *e, bool *success) {
   word_t result = eval(0, nr_token - 1, success);
 
   return result;
+}
+
+void load_random_expr_test() {
+  Log("====================    Expression test starts    =========================\n");
+  FILE *fp = fopen("./tools/gen-expr/input", "r");
+  FILE *log_fp = fopen("unmatch_log.txt", "w");
+  Assert(fp != NULL && log_fp != NULL, "Can not open input file:./tools/gen-expr/input");
+  char expr_str[256];
+  unsigned result_gold;
+  bool success;
+  char line[1024];
+  int passed = 0, failed = 0, total = 0;
+  while (fgets(line, sizeof(line), fp)) {
+    // 跳过空行
+    if (line[0] == '\n' || line[0] == '\0') continue;
+    // 解析第一列数字和第二列表达式（含空格）
+    int matched = sscanf(line, "%u %[^\n]", &result_gold, expr_str);
+    if (matched != 2) continue; // 跳过格式不对的行
+    char *args = expr_str;
+    unsigned result = expr(args, &success);
+    if(result == result_gold) {
+      // printf("Pass:expr: %s, result: %u\n", expr_str, result);
+      passed++;
+    }
+    else {
+      Log(ANSI_FG_RED "Fail:expr: %s, result: %u, expected: %u" ANSI_NONE, 
+          expr_str, result, result_gold);
+      fprintf(log_fp, "expr: %s, result: %u, expected: %u\n", 
+        expr_str, result, result_gold);
+      fflush(log_fp);
+      failed++;
+    }
+    total++;
+  }
+  fclose(fp);
+  fclose(log_fp);
+  Log(ANSI_FG_BLUE "Total: %d, " ANSI_FG_GREEN "Passed: %d, " ANSI_FG_RED "Failed: %d" ANSI_NONE, 
+    total, passed, failed);
+  Log("====================    Expression test ends    =========================\n");
 }

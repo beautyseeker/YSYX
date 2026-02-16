@@ -36,6 +36,8 @@ void wp_list_show();
 int wp_scan_wp();
 void init_wp_pool();
 void wp_display(WP* wp);
-void ftrace_hook(vaddr_t pc);
+void load_random_expr_test();
+void init_elf(const char *filename);
+const char* get_symbol_name(paddr_t addr);
 
 #endif

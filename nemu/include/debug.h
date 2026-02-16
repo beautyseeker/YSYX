@@ -40,4 +40,12 @@
 
 #define TODO() panic("please implement me")
 
+#define CHECK_AND_RETURN(cond, fmt, ...) \
+  do { \
+    if (cond) { \
+      printf(ANSI_FMT(fmt, ANSI_FG_RED) "\n", ##__VA_ARGS__); \
+      return; \
+    } \
+  } while (0)
+
 #endif

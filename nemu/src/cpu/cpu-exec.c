@@ -14,6 +14,7 @@
 ***************************************************************************************/
 
 #include <cpu/cpu.h>
+#include "../isa/riscv32/local-include/reg.h"
 #include <cpu/decode.h>
 #include <cpu/difftest.h>
 #include <locale.h>
@@ -31,15 +32,12 @@ uint64_t g_nr_guest_inst = 0;
 static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
 static char iring_buf[32][128];
+static char symbol_buf[256];
 
 void device_update();
+void get_symbol_str(Decode *s);
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
-#ifdef CONFIG_FTRACE
-  extern void ftrace_hook(vaddr_t pc);
-  ftrace_hook(_this->pc);
-#endif
-
 
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
@@ -76,12 +74,58 @@ static void exec_once(Decode *s, vaddr_t pc) {
   memset(p, ' ', space_len);
   p += space_len;
 
+#ifdef CONFIG_FTRACE
+  get_symbol_str(s);
+  p += snprintf(p, sizeof(s->logbuf), "%s", symbol_buf);
+#endif
+
   void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
   disassemble(p, s->logbuf + sizeof(s->logbuf) - p,
       MUXDEF(CONFIG_ISA_x86, s->snpc, s->pc), (uint8_t *)&s->isa.inst, ilen);
   
   memmove(iring_buf[g_nr_guest_inst % ARRLEN(iring_buf)], s->logbuf, sizeof(s->logbuf));
 #endif
+}
+
+void get_symbol_str(Decode *s) {
+  symbol_buf[0] = '\0';
+  uint32_t opcode = s->isa.inst & 0x7f;
+  
+  if(opcode == 0x6f) { // jal
+    const char* name = get_symbol_name(s->dnpc);
+    if (name != NULL) {
+      snprintf(symbol_buf, sizeof(symbol_buf), ANSI_FG_YELLOW"call <%s@0x%08x>"ANSI_NONE, name, s->dnpc);
+    } else {
+      snprintf(symbol_buf, sizeof(symbol_buf), ANSI_FG_YELLOW"call <Unknown>"ANSI_NONE);
+    }
+    symbol_buf[sizeof(symbol_buf) - 1] = '\0';
+  } 
+  else if(opcode == 0x67) { // jalr
+    uint32_t rd = (s->isa.inst >> 7) & 0x1f;
+    uint32_t rs1 = (s->isa.inst >> 15) & 0x1f;
+    uint32_t imm = (s->isa.inst >> 20);
+    if (rd == 1) { // jalr ra, ...
+      const char* name = get_symbol_name(s->dnpc);
+      if (name != NULL) {
+        snprintf(symbol_buf, sizeof(symbol_buf), ANSI_FG_YELLOW"call <%s@0x%08x>"ANSI_NONE, name, s->dnpc);
+      } else {
+        snprintf(symbol_buf, sizeof(symbol_buf), ANSI_FG_YELLOW"call <Unknown>"ANSI_NONE);
+      }
+      symbol_buf[sizeof(symbol_buf) - 1] = '\0';
+    }
+    if (rd == 0 && rs1 == 1 && imm == 0) { // ret
+      const char* name = get_symbol_name(s->dnpc);
+      if (name != NULL) {
+        snprintf(symbol_buf, sizeof(symbol_buf), ANSI_FG_YELLOW"ret <%s@0x%08x>"ANSI_NONE, name, s->dnpc);
+      } else {
+        snprintf(symbol_buf, sizeof(symbol_buf), ANSI_FG_YELLOW"ret <Unknown>"ANSI_NONE);
+      }
+      symbol_buf[sizeof(symbol_buf) - 1] = '\0';
+    }
+  }
+  else {
+    symbol_buf[0] = '\0';
+  }
 }
 
 static void execute(uint64_t n) {

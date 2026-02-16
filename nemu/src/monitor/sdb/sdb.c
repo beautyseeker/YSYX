@@ -257,10 +257,6 @@ void sdb_set_batch_mode() {
   is_batch_mode = true;
 }
 
-void ftrace_hook(vaddr_t pc) {
-  Log("FTRACE: PC = " FMT_WORD "\n", pc);
-}
-
 void sdb_mainloop() {
   if (is_batch_mode) {
     cmd_c(NULL);
@@ -305,4 +301,6 @@ void init_sdb() {
 
   /* Initialize the watchpoint pool. */
   init_wp_pool();
+
+  IFDEF(CONFIG_EXPR_TEST, load_random_expr_test());
 }
