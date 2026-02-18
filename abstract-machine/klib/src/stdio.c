@@ -7,7 +7,15 @@
 
 int printf(const char *fmt, ...) {
   // panic("Not implemented");
-  return 0;
+  char send_buf[1024];
+  va_list ap;
+  va_start(ap, fmt);
+  int ret = vsnprintf(send_buf, sizeof(send_buf), fmt, ap);
+  va_end(ap);
+  for (char *p = send_buf; *p; p++) {
+    putch(*p);
+  }
+  return ret;
 }
 
 int vsprintf(char *out, const char *fmt, va_list ap) {
@@ -103,6 +111,45 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
           buf[i++] = (char)('0' + unum % 10);
           unum /= 10;
         } while (unum > 0);
+        
+        for (int j = i - 1; j >= 0; j--) {
+          if (written < n - 1) {
+            *p++ = buf[j];
+            written++;
+          }
+        }
+      }
+
+      else if(*f == 'u') {
+        unsigned int num = va_arg(ap, unsigned int);
+        char buf[11]; // enough to hold 4294967295 and '\0'
+        int i = 0;
+        do{
+          buf[i++] = (char)('0' + num % 10);
+          num /= 10;
+        } while (num > 0);
+        
+        for (int j = i - 1; j >= 0; j--) {
+          if (written < n - 1) {
+            *p++ = buf[j];
+            written++;
+          }
+        }
+      }
+      else if(*f == 'x') {
+        unsigned int num = va_arg(ap, unsigned int);
+        char buf[9]; // enough to hold ffffffff and '\0'
+        int i = 0;
+        do{
+          uint8_t digit = num % 16;
+          if (digit < 10) {
+            buf[i++] = (char)('0' + digit);
+          }
+          else {
+            buf[i++] = (char)('a' + digit - 10);
+          }
+          num /= 16;
+        } while (num > 0);
         
         for (int j = i - 1; j >= 0; j--) {
           if (written < n - 1) {

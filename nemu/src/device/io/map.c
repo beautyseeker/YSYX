@@ -25,7 +25,7 @@ static uint8_t *p_space = NULL;
 
 uint8_t* new_space(int size) {
   uint8_t *p = p_space;
-  // page aligned;
+  // page aligned;把 size 向上取整到 PAGE_SIZE 的整数倍，保证分配的空间是页对齐的
   size = (size + (PAGE_SIZE - 1)) & ~PAGE_MASK;
   p_space += size;
   assert(p_space - io_space < IO_SPACE_MAX);

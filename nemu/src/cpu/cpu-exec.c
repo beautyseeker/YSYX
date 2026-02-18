@@ -36,6 +36,7 @@ static char symbol_buf[256];
 
 void device_update();
 void get_symbol_str(Decode *s);
+static void print_iring() __attribute__((unused));
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 
@@ -191,9 +192,7 @@ void cpu_exec(uint64_t n) {
            (nemu_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) :
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           nemu_state.halt_pc);
-      if(CONFIG_ITRACE && nemu_state.halt_ret != 0) {
-        print_iring();
-      }
+      IFDEF(CONFIG_ITRACE, if (nemu_state.halt_ret != 0) { print_iring(); });
       // fall through
     case NEMU_QUIT: statistic();
   }
