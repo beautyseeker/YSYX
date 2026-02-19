@@ -17,6 +17,7 @@ void init_elf(const char *filename) {
     CHECK_AND_RETURN(filename == NULL, "ELF filename is NULL, skipping ELF initialization");
     FILE *file = fopen(filename, "rb");
     CHECK_AND_RETURN(file == NULL, "Failed to open ELF file: %s, skipping ELF initialization", filename);
+    Log("Function Trace: %s", MUXDEF(CONFIG_FTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
     Log("Loading ELF file: %s", filename);
 
     // 读取ELF头

@@ -86,4 +86,5 @@ void init_device() {
   IFDEF(CONFIG_HAS_SDCARD, init_sdcard());
 
   IFNDEF(CONFIG_TARGET_AM, init_alarm());
+  Log("Device Trace: %s", MUXDEF(CONFIG_DTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
 }

@@ -44,6 +44,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
+  IFDEF(CONFIG_FTRACE, if(symbol_buf[0] != '\0') {printf("%sftrace pc:0x%08x: %s\n", ANSI_FG_YELLOW, _this->pc, symbol_buf);});
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
 #ifdef CONFIG_WATCHPOINT
   wp_scan_wp();
@@ -77,7 +78,6 @@ static void exec_once(Decode *s, vaddr_t pc) {
 
 #ifdef CONFIG_FTRACE
   get_symbol_str(s);
-  p += snprintf(p, sizeof(s->logbuf), "%s", symbol_buf);
 #endif
 
   void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
