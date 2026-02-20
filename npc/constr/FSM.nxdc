@@ -1,0 +1,6 @@
+top=top_FSM
+
+clk BTNC
+rst SW0
+in SW1
+out LD0

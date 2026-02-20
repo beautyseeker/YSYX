@@ -1,0 +1,7 @@
+top=top_prioty8_3_encoder
+clk PS2_CLK
+rst BTNC
+SW (SW7, SW6, SW5, SW4, SW3, SW2, SW1, SW0)
+led_out (LD15, LD14, LD13, LD12)
+valid LD12
+seg_out (SEG0A, SEG0B, SEG0C, SEG0D, SEG0E, SEG0F, SEG0G, DEC0P)

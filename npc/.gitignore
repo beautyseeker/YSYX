@@ -1,5 +1,4 @@
-*.*
-*
+
 !*/
 !Makefile
 !*.mk
@@ -7,6 +6,14 @@
 !*.v
 !*.cc
 !*.cpp
+!*.sv
+!constr/
+!csrc/
+!scripts/
+!vsrc/
 !.gitignore
 !README.md
 build/
+obj_dir/
+report/
+waveform.vcd

@@ -1,0 +1,7 @@
+top=top_example
+clk
+rst
+
+a SW0
+b SW1
+y LD0

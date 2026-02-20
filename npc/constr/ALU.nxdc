@@ -1,0 +1,12 @@
+top=top_ALU
+clk PS2_CLK
+rst BTNC
+a (SW7, SW6, SW5, SW4)
+b (SW3, SW2, SW1, SW0)
+op (BTNL, BTNC, BTNR)
+result (LD15, LD14, LD13, LD12)
+cout (LD3)
+zero (LD2)
+overflow (LD1)
+less (LD0)
+seg_res (SEG0A, SEG0B, SEG0C, SEG0D, SEG0E, SEG0F, SEG0G, DEC0P)
