@@ -1,6 +1,6 @@
 MODULE = example
 TOPNAME = top_$(MODULE)
-NXDC_FILES = constr/$(MODULE).nxdc
+NXDC_FILES = $(CONSTR_DIR)/$(MODULE).nxdc
 INC_PATH ?=
 
 VERILATOR = verilator
@@ -13,6 +13,25 @@ WAVE_DIR = $(BUILD_DIR)/waveforms
 
 BOARD_BIN = $(BUILD_DIR)/board_$(TOPNAME)
 SIM_BIN = $(BUILD_DIR)/sim_$(MODULE)
+
+NAME ?=
+CATEGORY_DIR ?= miniRV
+SIM_DIR ?= $(if $(CATEGORY_DIR),sim/$(CATEGORY_DIR),sim)
+VSRCS_DIR ?= $(if $(CATEGORY_DIR),vsrc/$(CATEGORY_DIR),vsrc)
+CONSTR_DIR ?= $(if $(CATEGORY_DIR),constr/$(CATEGORY_DIR),constr)
+
+new:
+	if [ -z "$(NAME)" ]; then \
+		echo "Please provide a name for the new module using 'make new NAME=your_module'"; \
+		exit 1; \
+	fi
+	@mkdir -p $(CONSTR_DIR) $(SIM_DIR) $(VSRCS_DIR)
+	@touch $(CONSTR_DIR)/$(NAME).nxdc
+	@touch $(SIM_DIR)/sim_$(NAME).cpp
+	@touch $(VSRCS_DIR)/$(NAME).sv
+	@echo "Created $(CONSTR_DIR)/$(NAME).nxdc, \
+	$(SIM_DIR)/sim_$(NAME).cpp, $(VSRCS_DIR)/$(NAME).sv"	
+.PHONY: new
 
 
 default: $(BOARD_BIN)
@@ -29,7 +48,10 @@ $(SRC_AUTO_BIND): $(NXDC_FILES)
 VSRCS = $(shell find $(abspath ./vsrc) -name "*.v" -o -name "*.sv")
 CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*.cpp")
 override CSRCS += $(SRC_AUTO_BIND)
-CPP_TB = sim/sim_$(MODULE).cpp
+
+CPP_TB := $(if $(wildcard $(SIM_DIR)/sim_$(MODULE).cpp),\
+              $(SIM_DIR)/sim_$(MODULE).cpp,\
+              $(firstword $(wildcard ./sim/**/sim_$(MODULE).cpp)))
 
 
 # rules for NVBoard
@@ -134,3 +156,4 @@ clean_all:
 .PHONY: default all clean \
 run sim show init syn sta \
 clean_sta clean_syn clean_all \
+new

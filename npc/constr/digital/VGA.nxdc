@@ -1,5 +1,7 @@
 top=top_VGA
 
+rst BTNC
+hsync VGA_HSYNC
 vsync VGA_VSYNC
 vga_blank_n VGA_BLANK_N
 vga_r (VGA_R7, VGA_R6, VGA_R5, VGA_R4, VGA_R3, VGA_R2, VGA_R1, VGA_R0)
