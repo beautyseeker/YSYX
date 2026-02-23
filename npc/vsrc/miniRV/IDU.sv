@@ -1,57 +1,8 @@
-// 1. 先定义基础枚举类型
-typedef enum logic [3:0] {
-    ALU_ADD    = 4'b0000,
-    ALU_SUB    = 4'b1000,
-    ALU_SLL    = 4'b0001,
-    ALU_SLT    = 4'b0010,
-    ALU_SLTU   = 4'b0011,
-    ALU_XOR    = 4'b0100,
-    ALU_SRL    = 4'b0101,
-    ALU_SRA    = 4'b1101,
-    ALU_OR     = 4'b0110,
-    ALU_AND    = 4'b0111,
-    ALU_COPY_B = 4'b1111 
-} alu_op_t;
+`include "defs_pkg.sv"
+import defs_pkg::*;
 
-typedef enum logic[1:0] {
-    ALU_SRC_REG = 2'b00,
-    ALU_SRC_IMM = 2'b01,
-    ALU_SRC_PC4  = 2'b10
-} ALU_src_sel_e;
-
-typedef enum logic {
-    MEM_SIGNED   = 1'b1,
-    MEM_UNSIGNED = 1'b0
-  } mem_sign_e;
-
-typedef enum logic [1:0] {
-    MEM_BYTE     = 2'b00,
-    MEM_HALF     = 2'b01,
-    MEM_WORD     = 2'b10
-} mem_size_e;
-
-
-typedef enum logic [2:0] {
-    PC_PLUS4  = 3'b000,
-    PC_BRANCH = 3'b001,
-    PC_JALR   = 3'b010,
-    PC_EXCEPT = 3'b011
-} PC_sel_e;
-
-// 2. 最后定义引用了上述类型的结构体
-typedef struct packed {
-    alu_op_t        ALU_op;      
-    logic           reg_write_en;
-    logic           mem_read_en; 
-    logic           mem_write_en;
-    logic           branch_en;   
-    PC_sel_e        PC_sel;      
-    ALU_src_sel_e   ALU_src_sel;
-    mem_sign_e      mem_sign;
-    mem_size_e      mem_size;
-} Ctrl_sig_t;
-
-module IDU(
+module IDU #(parameter DATA_WIDTH = 32)
+(
     input logic [31:0] inst,
 
     // 寄存器地址输出
@@ -60,7 +11,7 @@ module IDU(
     output logic [4:0] rd_addr,
 
     // 控制信号输出
-    output logic [31:0] imm, // 经过扩展的最终立即数
+    output logic [DATA_WIDTH-1:0] imm, // 经过扩展的最终立即数
     output Ctrl_sig_t ctrl_sig
 );
 
@@ -71,6 +22,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
     reg_write_en: DISABLE,
     mem_read_en: DISABLE,
     mem_write_en: DISABLE,
+    mem_to_reg: DISABLE,
     branch_en: DISABLE,
     PC_sel: PC_PLUS4,
     ALU_src_sel: ALU_SRC_REG,
@@ -105,17 +57,17 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
     always_comb begin : ImmGen
         case(opcode)
             7'b0010011, 7'b0000011, 7'b1100111: 
-                imm = {{20{immI[11]}}, immI}; // I-type
+                imm = DATA_WIDTH'($signed(immI)); // I-type
             7'b0100011: 
-                imm = {{20{immS[11]}}, immS}; // S-type
+                imm = DATA_WIDTH'($signed(immS)); // S-type
             7'b1100011: 
-                imm = {{19{immB[12]}}, immB}; // B-type
+                imm = DATA_WIDTH'($signed(immB)); // B-type
             7'b0110111, 7'b0010111:
-                imm = {immU, 12'b0}; // U-type
+                imm = {immU, {DATA_WIDTH-20{1'b0}}}; // U-type
             7'b1101111: 
-                imm = {{11{immJ[20]}}, immJ[20:1], 1'b0}; // J-type
+                imm = DATA_WIDTH'($signed(immJ)); // J-type
             default:
-                imm = 32'b0;
+                imm = {DATA_WIDTH{1'b0}};
         endcase
     end
 
@@ -156,6 +108,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
             7'b0000011: begin // I-type (load)
                 ctrl_sig.reg_write_en = ENABLE;
                 ctrl_sig.mem_read_en = ENABLE;
+                ctrl_sig.mem_to_reg = ENABLE;
                 ctrl_sig.ALU_src_sel = ALU_SRC_IMM; // imm
                 ctrl_sig.ALU_op = ALU_ADD; // ADD for address calculation
                 case(funct3)
