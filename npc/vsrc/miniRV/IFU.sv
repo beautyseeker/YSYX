@@ -45,4 +45,10 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
         end
     end
 
+// 确保 PC 永远是 4 字节对齐的（除非你有异常处理）
+property p_pc_aligned;
+    @(posedge clk) (rst_n) |-> (PC_current[ALIGNED_WIDTH-1:0] == 0);
+endproperty
+assert property (p_pc_aligned) else $error("PC Misaligned at time %t", $time);
+
 endmodule

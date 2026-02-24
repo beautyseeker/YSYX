@@ -18,14 +18,15 @@ module IDU #(parameter DATA_WIDTH = 32)
 localparam logic ENABLE = 1'b1;
 localparam logic DISABLE = 1'b0;
 localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
-    ALU_op: ALU_COPY_B,
+    ALU_op: ALU_ADD,
     reg_write_en: DISABLE,
     mem_read_en: DISABLE,
     mem_write_en: DISABLE,
-    mem_to_reg: DISABLE,
-    branch_en: DISABLE,
+    WB_sel: ALU_RES,
+    jmp_en: DISABLE,
     PC_sel: PC_PLUS4,
-    ALU_src_sel: ALU_SRC_REG,
+    ALU_a_src_sel: A_SRC_REG,
+    ALU_b_src_sel: B_SRC_REG,
     mem_sign: MEM_SIGNED,
     mem_size: MEM_WORD
 };
@@ -92,7 +93,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
             end
             7'b0010011: begin // I-type (ALU immediate)
                 ctrl_sig.reg_write_en = ENABLE;
-                ctrl_sig.ALU_src_sel = ALU_SRC_IMM;
+                ctrl_sig.ALU_b_src_sel = B_SRC_IMM;
                 case(funct3)
                     3'b000: ctrl_sig.ALU_op = ALU_ADD; // ADDI
                     3'b010: ctrl_sig.ALU_op = ALU_SLT; // SLTI
@@ -108,8 +109,8 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
             7'b0000011: begin // I-type (load)
                 ctrl_sig.reg_write_en = ENABLE;
                 ctrl_sig.mem_read_en = ENABLE;
-                ctrl_sig.mem_to_reg = ENABLE;
-                ctrl_sig.ALU_src_sel = ALU_SRC_IMM; // imm
+                ctrl_sig.WB_sel = MEM_LOAD;
+                ctrl_sig.ALU_b_src_sel = B_SRC_IMM; // imm
                 ctrl_sig.ALU_op = ALU_ADD; // ADD for address calculation
                 case(funct3)
                     3'b000: ctrl_sig.mem_size = MEM_BYTE; // LB
@@ -125,13 +126,15 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
             end
             7'b1100111: begin // I-type (JALR)
                 ctrl_sig.reg_write_en = ENABLE;
-                ctrl_sig.ALU_src_sel = ALU_SRC_IMM; // imm
-                ctrl_sig.ALU_op = ALU_ADD; // PC + imm
-                ctrl_sig.PC_sel = PC_JALR;
+                ctrl_sig.WB_sel = PC_INC;
+                ctrl_sig.jmp_en = ENABLE;
+                ctrl_sig.PC_sel = PC_JMP;
+                ctrl_sig.ALU_b_src_sel = B_SRC_IMM;
+                ctrl_sig.ALU_op = ALU_ADD;  // JALR需要用到ALU来计算目标地址
             end
             7'b0100011: begin // S-type (store)
                 ctrl_sig.mem_write_en = ENABLE;
-                ctrl_sig.ALU_src_sel = ALU_SRC_IMM; // imm
+                ctrl_sig.ALU_b_src_sel = B_SRC_IMM; // imm
                 ctrl_sig.ALU_op = ALU_ADD; // ADD for address calculation
                 case(funct3)
                     3'b000: ctrl_sig.mem_size = MEM_BYTE; // SB
@@ -141,8 +144,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                 endcase
             end
             7'b1100011: begin // B-type (branch)
-                ctrl_sig.branch_en = ENABLE;
-                ctrl_sig.ALU_src_sel = ALU_SRC_REG; // rs2
+                ctrl_sig.jmp_en = ENABLE;
                 ctrl_sig.PC_sel = PC_BRANCH;
                 case(funct3)
                     3'b000: ctrl_sig.ALU_op = ALU_SUB; // BEQ
@@ -156,20 +158,20 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
             end
             7'b0110111: begin // U-type (LUI)
                 ctrl_sig.reg_write_en = ENABLE;
-                ctrl_sig.ALU_src_sel = ALU_SRC_IMM; // imm
+                ctrl_sig.ALU_b_src_sel = B_SRC_IMM; // imm
                 ctrl_sig.ALU_op = ALU_COPY_B; // 直接透传立即数
             end
             7'b0010111: begin // U-type (AUIPC)
                 ctrl_sig.reg_write_en = ENABLE;
-                ctrl_sig.ALU_src_sel = ALU_SRC_IMM; // PC + imm
-                ctrl_sig.ALU_op = ALU_ADD; // PC + imm
+                ctrl_sig.ALU_a_src_sel = A_SRC_PC;
+                ctrl_sig.ALU_b_src_sel = B_SRC_IMM;
+                ctrl_sig.ALU_op = ALU_ADD;
             end
             7'b1101111: begin // J-type (JAL)
                 ctrl_sig.reg_write_en = ENABLE;
-                ctrl_sig.ALU_src_sel = ALU_SRC_IMM; // PC + imm
-                ctrl_sig.ALU_op = ALU_ADD; // PC + imm
-                ctrl_sig.PC_sel = PC_BRANCH;
-                ctrl_sig.branch_en = ENABLE;
+                ctrl_sig.WB_sel = PC_INC;
+                ctrl_sig.jmp_en = ENABLE;
+                ctrl_sig.PC_sel = PC_JMP;
             end
 
             7'b1110011: begin // SYSTEM (ECALL/EBREAK)

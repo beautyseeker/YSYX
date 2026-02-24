@@ -15,10 +15,16 @@ package defs_pkg;
     } alu_op_t;
 
     typedef enum logic[1:0] {
-        ALU_SRC_REG = 2'b00,
-        ALU_SRC_IMM = 2'b01,
-        ALU_SRC_PC4  = 2'b10
-    } ALU_src_sel_e;
+        B_SRC_REG = 2'b00,
+        B_SRC_IMM = 2'b01,
+        B_SRC_PC  = 2'b10
+    } ALU_b_src_sel_e;
+
+    typedef enum logic [1:0] {
+        A_SRC_REG = 2'b00,
+        A_SRC_IMM = 2'b01,
+        A_SRC_PC  = 2'b10
+    } ALU_a_src_sel_e;
 
     typedef enum logic {
         MEM_SIGNED   = 1'b1,
@@ -31,10 +37,16 @@ package defs_pkg;
         MEM_WORD     = 2'b10
     } mem_size_e;
 
+    typedef enum logic [1:0] { 
+        ALU_RES = 2'b00,
+        MEM_LOAD = 2'b01,
+        PC_INC = 2'b10
+     } WB_sel_e;
+
     typedef enum logic [2:0] {
         PC_PLUS4  = 3'b000,
         PC_BRANCH = 3'b001,
-        PC_JALR   = 3'b010,
+        PC_JMP   = 3'b010,
         PC_EXCEPT = 3'b011
     } PC_sel_e;
 
@@ -55,10 +67,11 @@ package defs_pkg;
         logic           reg_write_en;
         logic           mem_read_en; 
         logic           mem_write_en;
-        logic           mem_to_reg;
-        logic           branch_en;   
-        PC_sel_e        PC_sel;      
-        ALU_src_sel_e   ALU_src_sel;
+        WB_sel_e        WB_sel;
+        logic           jmp_en;   
+        PC_sel_e        PC_sel; 
+        ALU_a_src_sel_e   ALU_a_src_sel;     
+        ALU_b_src_sel_e   ALU_b_src_sel;
         mem_sign_e      mem_sign;
         mem_size_e      mem_size;
     } Ctrl_sig_t; 

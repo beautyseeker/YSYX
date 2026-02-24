@@ -1,7 +1,7 @@
 `include "defs_pkg.sv"
 import defs_pkg::*;
 
-module TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
+module TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, REG_COUNT = 32)
 (
     input logic                  clk,
     input logic                  rst_n,
@@ -11,7 +11,7 @@ module TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
     output exception_t            fetch_exception
 );
     // 模块实例化
-    localparam REG_ADDR_WIDTH = 5; // 寄存器地址宽度，RISC-V有32个寄存器
+    localparam REG_ADDR_WIDTH = $clog2(REG_COUNT); // 寄存器地址宽度，根据寄存器数量计算
     logic [REG_ADDR_WIDTH-1:0] Rs1_addr, Rs2_addr, Rd_addr;
     logic [DATA_WIDTH-1:0] Rs1_data, Rs2_data, Rd_data;
     logic [DATA_WIDTH-1:0] alu_result;
@@ -24,13 +24,13 @@ module TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
     IFU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH)) ifu (
         .clk(clk),
         .rst_n(rst_n),
-        .PC_next(jmp_target), // 这里简单地将当前PC作为下一个PC，实际设计中会更复杂
+        .PC_next(PC_next),
         .PC_current(PC_current),
         .instruction(instruction),
         .exception(fetch_exception)
     );
 
-    RegisterFile #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(5)) regfile (
+    RegisterFile #(.DATA_WIDTH(DATA_WIDTH), .REG_COUNT(REG_COUNT)) regfile (
         .clk(clk),
         .rst_n(rst_n),
         .rs1_addr(Rs1_addr),
@@ -38,7 +38,7 @@ module TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
         .rd_addr(Rd_addr),
         .rs1_data(Rs1_data),
         .rs2_data(Rs2_data),
-        .rd_data(Rd_data), // 写回数据暂时不连接
+        .write_data(Rd_data), // 写回数据暂时不连接
         .reg_write_en(ctrl_sig.reg_write_en) // 写使能暂时不连接
     );
 
@@ -51,29 +51,46 @@ module TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
         .ctrl_sig(ctrl_sig)
     );
 
+    logic [DATA_WIDTH-1:0] alu_b;
+    always_comb begin : ALU_b_src_sel
+        case(ctrl_sig.ALU_b_src_sel)
+            B_SRC_REG: alu_b = Rs2_data;
+            B_SRC_IMM: alu_b = imm_ext;
+            default: alu_b = 'x; // 不应该发生
+        endcase
+        assert (ctrl_sig.ALU_b_src_sel inside {B_SRC_REG, B_SRC_IMM})
+        else $error("Invalid ALU_b_src_sel: %0d at time %t", ctrl_sig.ALU_b_src_sel, $time);
+    end
+
+    // alu_a仅在opcode为AUIPC时使用PC_current，否则为Rs1_data
+    logic [DATA_WIDTH-1:0] alu_a;
+    assign alu_a = ctrl_sig.ALU_a_src_sel == A_SRC_PC ? DATA_WIDTH'($signed(PC_current)) : Rs1_data;
+
     EXU #(.DATA_WIDTH(DATA_WIDTH)) exu (
-        .alu_a(Rs1_data),
-        .alu_b(Rs2_data),
+        .alu_a(alu_a),
+        .alu_b(alu_b),
         .ALU_op(ctrl_sig.ALU_op),
         .alu_zero(ALU_zero),
         .ALU_result(alu_result)
     );
 
     logic ALU_zero;
-    logic branch_taken;
-    assign branch_taken = (ctrl_sig.branch_en && ALU_zero); // 简单的分支判断，实际设计中可能更复杂
-    logic [ADDR_WIDTH-1:0] jmp_target;
+    logic [ADDR_WIDTH-1:0] PC_next;
+    logic [ADDR_WIDTH-1:0] PCInc4;
+    logic is_jal;
+    assign is_jal = instruction[3]; // JAL指令
+    assign PCInc4 = PC_current + 4;
 
     always_comb begin
-        if(branch_taken)
+        if(ctrl_sig.jmp_en)
             case(ctrl_sig.PC_sel)
-                PC_PLUS4: jmp_target = PC_current + 4;
-                PC_BRANCH: jmp_target = PC_current + imm_ext[ADDR_WIDTH-1:0]; // 分支目标地址
-                PC_JALR: jmp_target = imm_ext[ADDR_WIDTH-1:0]; // 长跳目标地址
-                default: jmp_target = PC_current + 4;
+                PC_PLUS4: PC_next = PCInc4;
+                PC_BRANCH: PC_next = ALU_zero ? PC_current + imm_ext[ADDR_WIDTH-1:0] : PCInc4; // 分支跳转
+                PC_JMP: PC_next = is_jal ? PC_current + imm_ext[ADDR_WIDTH-1:0] : alu_result[ADDR_WIDTH-1:0] & ~1; // 无条件跳转
+                default: PC_next = PCInc4;
             endcase
         else
-            jmp_target = PC_current + 4; // 默认顺序执行
+            PC_next = PCInc4; // 默认顺序执行
     end
 
     LSU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH)) lsu (
@@ -91,7 +108,8 @@ module TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
     WBU #(.DATA_WIDTH(DATA_WIDTH)) wbu (
         .alu_result(alu_result),
         .mem_load_data(mem_load_data),
-        .ctrl_sig(ctrl_sig),
-        .rd_data_out(Rd_data) // 写回数据暂时不连接
+        .WB_sel(ctrl_sig.WB_sel),
+        .PC_current(PC_current),
+        .WB_data(Rd_data)
     );
 endmodule
