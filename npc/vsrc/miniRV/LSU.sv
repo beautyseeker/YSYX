@@ -1,4 +1,4 @@
-`include "defs_pkg.sv"
+// `include "defs_pkg.sv"
 import defs_pkg::*;
 
 module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
@@ -108,7 +108,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            $readmemh("data_mem_init.hex", MEM); // 从文件初始化内存
+            $readmemh("./resource/addi.hex", MEM); // 从文件初始化内存
         end else if (mem_write_en && !misaligned_access && !addr_out_of_range) begin
             case (mem_size)
                 MEM_BYTE: begin

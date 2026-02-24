@@ -1,4 +1,5 @@
-`include "defs_pkg.sv"
+
+// `include "defs_pkg.sv"
 import defs_pkg::*;
 
 module IDU #(parameter DATA_WIDTH = 32)

@@ -1,4 +1,4 @@
-`include "defs_pkg.sv"
+// `include "defs_pkg.sv"
 import defs_pkg::*;
 
 module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
@@ -26,7 +26,7 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
     logic [DATA_WIDTH-1:0] ROM [0:ROM_DEPTH-1];
     initial begin
         // 这里可以预加载指令到ROM中，或者在仿真时通过文件加载
-        $readmemh("program.hex", ROM);
+        $readmemh("./resource/addi.hex", ROM);
     end
 
     logic fetch_exception;

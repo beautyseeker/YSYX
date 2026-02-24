@@ -4,8 +4,8 @@ NXDC_FILES = $(CONSTR_DIR)/$(MODULE).nxdc
 INC_PATH ?=
 
 VERILATOR = verilator
-VERILATOR_CFLAGS += -MMD --build -cc -sv \
-				-O3 --x-assign fast --x-initial fast --noassert --trace -D
+VERILATOR_CFLAGS += -MMD --build -cc -sv -I$(abspath $(INCLUDE_DIR)) \
+				-O3 --x-assign fast --x-initial fast --trace -D
 
 BUILD_DIR = ./build
 OBJ_DIR = $(BUILD_DIR)/obj_dir
@@ -14,29 +14,32 @@ WAVE_DIR = $(BUILD_DIR)/waveforms
 BOARD_BIN = $(BUILD_DIR)/board_$(TOPNAME)
 SIM_BIN = $(BUILD_DIR)/sim_$(MODULE)
 
-NAME ?=
+NEW ?=
 CATEGORY_DIR ?= miniRV
+INCLUDE_DIR ?= $(if $(CATEGORY_DIR),include/$(CATEGORY_DIR),include)
 SIM_DIR ?= $(if $(CATEGORY_DIR),sim/$(CATEGORY_DIR),sim)
 VSRCS_DIR ?= $(if $(CATEGORY_DIR),vsrc/$(CATEGORY_DIR),vsrc)
 CONSTR_DIR ?= $(if $(CATEGORY_DIR),constr/$(CATEGORY_DIR),constr)
 
 new:
-	if [ -z "$(NAME)" ]; then \
-		echo "Please provide a name for the new module using 'make new NAME=your_module'"; \
+	if [ -z "$(NEW)" ]; then \
+		echo "Please provide a name for the new module using 'make new NEW=your_module'"; \
 		exit 1; \
 	fi
-	@mkdir -p $(CONSTR_DIR) $(SIM_DIR) $(VSRCS_DIR)
-	@touch $(CONSTR_DIR)/$(NAME).nxdc
-	@touch $(SIM_DIR)/sim_$(NAME).cpp
-	@touch $(VSRCS_DIR)/$(NAME).sv
-	@echo "Created $(CONSTR_DIR)/$(NAME).nxdc, \
-	$(SIM_DIR)/sim_$(NAME).cpp, $(VSRCS_DIR)/$(NAME).sv"	
+	@mkdir -p $(CONSTR_DIR) $(SIM_DIR) $(VSRCS_DIR) $(INCLUDE_DIR)
+	@touch $(CONSTR_DIR)/$(NEW).nxdc
+	@touch $(SIM_DIR)/sim_$(NEW).cpp
+	@touch $(VSRCS_DIR)/$(NEW).sv
+	@echo "Created $(CONSTR_DIR)/$(NEW).nxdc, \
+	$(SIM_DIR)/sim_$(NEW).cpp, $(VSRCS_DIR)/$(NEW).sv"	
 .PHONY: new
 
 
 default: $(BOARD_BIN)
 
 $(shell mkdir -p $(BUILD_DIR)/waveforms)
+# OBJ_DIR为空则创建
+$(shell [ -d $(OBJ_DIR) ] || mkdir -p $(OBJ_DIR))
 
 # constraint file
 SRC_AUTO_BIND = $(abspath $(BUILD_DIR)/$(TOPNAME)_auto_bind.cpp)
@@ -45,7 +48,7 @@ $(SRC_AUTO_BIND): $(NXDC_FILES)
 
 # project source
 # VSRCS = $(shell find $(abspath ./vsrc) -name "$(TOPNAME).v" -o -name "$(TOPNAME).sv")
-VSRCS = $(shell find $(abspath ./vsrc) -name "*.v" -o -name "*.sv")
+VSRCS = $(abspath ./include/defs_pkg.sv) $(shell find $(abspath $(VSRCS_DIR)) -name "*.v" -o -name "*.sv")
 CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*.cpp")
 override CSRCS += $(SRC_AUTO_BIND)
 

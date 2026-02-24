@@ -75,4 +75,8 @@ package defs_pkg;
         mem_sign_e      mem_sign;
         mem_size_e      mem_size;
     } Ctrl_sig_t; 
+
+    // 添加默认内存初始化文件路径
+    parameter string RAM_INIT_FILE_DEFAULT = "./resource/addi.hex";
+    parameter string ROM_INIT_FILE_DEFAULT = "./resource/addi.hex";
 endpackage

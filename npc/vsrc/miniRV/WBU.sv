@@ -1,4 +1,4 @@
-`include "defs_pkg.sv"
+// `include "defs_pkg.sv"
 import defs_pkg::*;
 
 module WBU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)

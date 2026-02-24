@@ -1,13 +1,14 @@
-`include "defs_pkg.sv"
+// `include "defs_pkg.sv"
 import defs_pkg::*;
 
-module TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, REG_COUNT = 32)
+module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 20, REG_COUNT = 32)
 (
     input logic                  clk,
     input logic                  rst_n,
 
     output logic [ADDR_WIDTH-1:0] PC_current,
     output logic [DATA_WIDTH-1:0] instruction,
+    output logic [DATA_WIDTH-1:0] regs [REG_COUNT-1:0], // 输出整个寄存器文件状态，便于调试
     output exception_t            fetch_exception
 );
     // 模块实例化
@@ -38,11 +39,12 @@ module TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, REG_COUNT = 32)
         .rd_addr(Rd_addr),
         .rs1_data(Rs1_data),
         .rs2_data(Rs2_data),
-        .write_data(Rd_data), // 写回数据暂时不连接
-        .reg_write_en(ctrl_sig.reg_write_en) // 写使能暂时不连接
+        .write_data(Rd_data),
+        .reg_write_en(ctrl_sig.reg_write_en),
+        .regs(regs) // 输出整个寄存器文件状态，便于调试
     );
 
-    IDU idu (
+    IDU #(.DATA_WIDTH(DATA_WIDTH)) idu (
         .inst(instruction),
         .rs1_addr(Rs1_addr),
         .rs2_addr(Rs2_addr),
@@ -105,7 +107,7 @@ module TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, REG_COUNT = 32)
         .load_data(mem_load_data),
         .mem_exception(fetch_exception)
     );
-    WBU #(.DATA_WIDTH(DATA_WIDTH)) wbu (
+    WBU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH)) wbu (
         .alu_result(alu_result),
         .mem_load_data(mem_load_data),
         .WB_sel(ctrl_sig.WB_sel),

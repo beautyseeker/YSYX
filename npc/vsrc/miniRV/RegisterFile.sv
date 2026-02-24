@@ -9,7 +9,8 @@ module RegisterFile #(REG_COUNT = 32, DATA_WIDTH = 32)
     input logic                       reg_write_en,
 
     output logic [DATA_WIDTH-1:0] rs1_data,
-    output logic [DATA_WIDTH-1:0] rs2_data
+    output logic [DATA_WIDTH-1:0] rs2_data,
+    output logic [DATA_WIDTH-1:0] regs [REG_COUNT-1:0] // 输出整个寄存器文件状态，便于调试
 );
     parameter REG_ADDR_WIDTH = $clog2(REG_COUNT);
     logic [DATA_WIDTH-1:0] reg_file [REG_COUNT-1:0];
@@ -28,4 +29,7 @@ module RegisterFile #(REG_COUNT = 32, DATA_WIDTH = 32)
             reg_file[rd_addr] <= write_data;
         end
     end
+
+    // 输出整个寄存器文件状态，便于调试
+    assign regs = reg_file;
 endmodule

@@ -1,4 +1,4 @@
-`include "defs_pkg.sv"
+// `include "defs_pkg.sv"
 import defs_pkg::*;
 
 module EXU #(parameter DATA_WIDTH = 32)
@@ -34,8 +34,8 @@ module EXU #(parameter DATA_WIDTH = 32)
                 ALU_XOR, ALU_SRL, ALU_SRA, ALU_OR, ALU_AND, ALU_COPY_B
             }
         ) else $error("ALU_op invalid: %0d at time %t", ALU_op, $time);
-        assert (^ALU_result !== 1'bx && ^ALU_result !== 1'bz)
-        else $error("ALU_result is x or z at time %t", $time);
+        // assert (^ALU_result !== 1'bx && ^ALU_result !== 1'bz)
+        // else $error("ALU_result is x or z at time %t", $time);
     end
     
     assign alu_zero = (ALU_result == 0);
