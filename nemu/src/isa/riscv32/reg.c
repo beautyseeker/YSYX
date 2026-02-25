@@ -24,8 +24,39 @@ const char *regs[] = {
 };
 
 void isa_reg_display() {
+<<<<<<< HEAD
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
   return 0;
+=======
+  printf("=== General Purpose Registers ===\n");
+  for (int i = 0; i < 32; i++) {
+    printf("%s: 0x%08x\t", reg_name(i), gpr(i));
+    if ((i + 1) % 4 == 0) {
+      printf("\n");
+    }
+  }
+}
+
+word_t isa_reg_str2val(const char *s, bool *success) {
+  if(s[0] == '\0') {
+    *success = false;
+    Log(ANSI_FG_RED "Empty register name\n" ANSI_NONE);
+    return -1;
+  }
+  for (int reg_idx = 0; reg_idx < 32; reg_idx++) {
+    if (strcmp(s, regs[reg_idx]) == 0) {
+      *success = true;
+      return gpr(reg_idx);
+    }
+  }
+  if(strcmp(s, "pc") == 0) {
+    *success = true;
+    return cpu.pc;
+  }
+  *success = false;
+  Log(ANSI_FG_RED "Invalid register name:\\$%s\n" ANSI_NONE, s);
+  return -1;
+>>>>>>> pa_repo/master
 }

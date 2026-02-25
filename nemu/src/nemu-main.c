@@ -19,6 +19,10 @@ void init_monitor(int, char *[]);
 void am_init_monitor();
 void engine_start();
 int is_exit_status_bad();
+<<<<<<< HEAD
+=======
+extern unsigned expr(char *args, bool *success);
+>>>>>>> pa_repo/master
 
 int main(int argc, char *argv[]) {
   /* Initialize the monitor. */
@@ -27,7 +31,10 @@ int main(int argc, char *argv[]) {
 #else
   init_monitor(argc, argv);
 #endif
+<<<<<<< HEAD
 
+=======
+>>>>>>> pa_repo/master
   /* Start engine. */
   engine_start();
 

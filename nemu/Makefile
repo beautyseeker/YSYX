@@ -62,3 +62,10 @@ else
 # Include rules to build NEMU
 include $(NEMU_HOME)/scripts/native.mk
 endif
+
+BRANCH ?= master
+count:
+	@echo "Increasement line compared with $(BRANCH)":\
+	$$(git diff master --stat | head -n -1 | awk '{sum+=$$3} END {print sum}')
+
+.PHONY: count

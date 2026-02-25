@@ -18,12 +18,36 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
+<<<<<<< HEAD
+=======
+#include <utils.h>
+#include <memory/paddr.h>
+>>>>>>> pa_repo/master
 
 static int is_batch_mode = false;
 
 void init_regex();
 void init_wp_pool();
 
+<<<<<<< HEAD
+=======
+static int cmd_si(char *args);
+
+static int cmd_info(char *args);
+
+static int cmd_x(char *args);
+
+static int cmd_help(char *args);
+
+int cmd_expr(char *args);
+
+int cmd_w(char *args);
+
+int cmd_d(char *args);
+
+int cmd_b(char *hex_addr);
+
+>>>>>>> pa_repo/master
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
   static char *line_read = NULL;
@@ -49,10 +73,154 @@ static int cmd_c(char *args) {
 
 
 static int cmd_q(char *args) {
+<<<<<<< HEAD
   return -1;
 }
 
 static int cmd_help(char *args);
+=======
+  nemu_state.state = NEMU_QUIT;
+  return -1;
+}
+
+static int cmd_si(char *args){
+  int n;
+  if(args == NULL){
+    n = 1;
+  }
+  else {
+    char *endptr;
+    n = strtol(args, &endptr, 10);
+    if(endptr == args || *endptr != '\0' || n < 0) {
+      printf("Invalid argument: %s\n", args);
+      return 0;
+    }
+  }
+  cpu_exec(n);
+
+  return 0;
+}
+
+static int cmd_info(char *args) {
+  if(args == NULL) {
+    printf("Usage: info r/w\n");
+    return 0;
+  }
+  if(strcmp(args, "r") == 0) {
+    isa_reg_display();
+  }
+  else if(strcmp(args, "w") == 0) {
+    wp_list_show();
+  }
+  else {
+    printf("Unknown argument: %s\n", args);
+  }
+  return 0;
+}
+
+static int cmd_x(char *args) {
+  if(args == NULL) {
+    printf("Usage: x N EXPR\n");
+    return 0;
+  }
+  char *arg1 = strtok(args, " ");
+  char *arg2 = strtok(NULL, " ");
+  if(arg1 == NULL || arg2 == NULL) {
+    printf("Usage: x N EXPR\n");
+    return 0;
+  }
+  char *endptr;
+  int N = strtol(arg1, &endptr, 10);
+  if(endptr == arg1 || *endptr != '\0' || N <= 0) {
+    printf("Invalid number of units: %s\n", arg1);
+    return 0;
+  }
+
+  bool success;
+  vaddr_t addr = expr(arg2, &success);
+  if(!success) {
+    printf("Invalid address expression: %s\n", arg2);
+    return 0;
+  }
+  for(int i = 0; i < N; i++) {
+    word_t data = paddr_read(addr + i * 4, 4);
+    printf(FMT_PADDR ": " FMT_WORD "\n", addr + i *4, data);
+  }
+  return 0;
+}
+
+int cmd_expr(char *args) {
+  if(args == NULL) {
+    printf("Usage: p EXPR\n");
+    return 0;
+  }
+  bool success;
+  word_t result = expr(args, &success);
+  if(!success) {
+    printf("Invalid expression: %s\n", args);
+    return 0;
+  }
+  if(args[0] == '$' || (args[0] == '0' && args[1] == 'x')) {
+    printf(FMT_WORD "\n", result);
+  }
+  else {
+    printf( "%u\n", result);
+  }
+  return 0;
+}
+
+int cmd_w(char *args) {
+  if(args == NULL) {
+    printf("Usage: w EXPR\n");
+    return 0;
+  }
+  WP* wp = new_wp();
+  strncpy(wp->expr, args, sizeof(wp->expr) - 1);
+  wp->expr[sizeof(wp->expr) - 1] = '\0';
+  bool success;
+  wp->last_value = expr(wp->expr, &success);
+  if(!success) {
+    Log("Failed to evaluate watchpoint %d expression: %s\n",
+        wp->NO, wp->expr);
+    free_wp(wp);
+    return 0;
+  }
+  wp_display(wp);
+  return 0;
+}
+
+int cmd_b(char *hex_addr) {
+  if(hex_addr == NULL) {
+    printf("Usage: b EXPR\n");
+    return 0;
+  }
+  if(hex_addr[0] != '0' || hex_addr[1] != 'x') {
+    printf("Only hexadecimal address is supported for breakpoints.\n");
+    return 0;
+  }
+  char expr_buf[256];
+  snprintf(expr_buf, sizeof(expr_buf), "$pc==%s", hex_addr);
+  cmd_w(expr_buf);
+  return 0;
+}
+
+int cmd_d(char *args) {
+  if(args == NULL) {
+    printf("Usage: d NO\n");
+    return 0;
+  }
+  char *endptr;
+  int NO = strtol(args, &endptr, 10);
+  if(endptr == args || *endptr != '\0' || NO < 0) {
+    printf("Invalid watchpoint number: %s\n", args);
+    return 0;
+  }
+  if (free_wp_by_no(NO) == 0) {
+    printf("Deleted watchpoint %d\n", NO);
+  }
+  return 0;
+} 
+>>>>>>> pa_repo/master
 
 static struct {
   const char *name;
@@ -62,7 +230,17 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
+<<<<<<< HEAD
 
+=======
+  {"si", "Step through N instructions", cmd_si },
+  {"info", "Display register or watchpoint information", cmd_info },
+  {"x", "Examine memory: x N EXPR", cmd_x },
+  {"p", "Evaluate expression: p EXPR", cmd_expr },
+  {"w", "Set a watchpoint for an expression", cmd_w },
+  {"d", "Delete a watchpoint with given NO.", cmd_d },
+  {"b", "Set a breakpoint at given hexadecimal address", cmd_b },
+>>>>>>> pa_repo/master
   /* TODO: Add more commands */
 
 };
@@ -140,4 +318,9 @@ void init_sdb() {
 
   /* Initialize the watchpoint pool. */
   init_wp_pool();
+<<<<<<< HEAD
+=======
+
+  IFDEF(CONFIG_EXPR_TEST, load_random_expr_test());
+>>>>>>> pa_repo/master
 }

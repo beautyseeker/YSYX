@@ -18,7 +18,22 @@
 #include "../local-include/reg.h"
 
 bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc) {
+<<<<<<< HEAD
   return false;
+=======
+  for (int i = 0; i < 32; i++) {
+    if (ref_r->gpr[i] != gpr(i)) {
+      Log(ANSI_FG_RED "Register %s mismatch at pc = " FMT_WORD ": ref = " FMT_WORD ", dut = " FMT_WORD "\n" ANSI_NONE,
+          reg_name(i), pc, ref_r->gpr[i], gpr(i));
+      return false;
+    }
+  }
+  if (ref_r->pc != cpu.pc) {
+    Log(ANSI_FG_RED "PC mismatch: ref = " FMT_WORD ", dut = " FMT_WORD "\n" ANSI_NONE, ref_r->pc, cpu.pc);
+    return false;
+  }
+  return true;
+>>>>>>> pa_repo/master
 }
 
 void isa_difftest_attach() {

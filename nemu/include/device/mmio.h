@@ -17,8 +17,16 @@
 #define __DEVICE_MMIO_H__
 
 #include <common.h>
+<<<<<<< HEAD
 
 word_t mmio_read(paddr_t addr, int len);
 void mmio_write(paddr_t addr, int len, word_t data);
+=======
+#include <device/map.h>
+
+word_t mmio_read(paddr_t addr, int len);
+void mmio_write(paddr_t addr, int len, word_t data);
+IOMap* fetch_mmio_map(paddr_t addr);
+>>>>>>> pa_repo/master
 
 #endif

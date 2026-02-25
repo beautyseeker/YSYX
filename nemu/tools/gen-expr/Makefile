@@ -15,4 +15,8 @@
 
 NAME = gen-expr
 SRCS = gen-expr.c
+<<<<<<< HEAD
+=======
+CFLAGS += -g
+>>>>>>> pa_repo/master
 include $(NEMU_HOME)/scripts/build.mk

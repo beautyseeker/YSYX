@@ -21,8 +21,13 @@
 #include <string.h>
 
 // this should be enough
+<<<<<<< HEAD
 static char buf[65536] = {};
 static char code_buf[65536 + 128] = {}; // a little larger than `buf`
+=======
+static char expr_buf[65536] = {};
+static char code_buf[65536 + 128] = {}; // a little larger than `expr_buf`
+>>>>>>> pa_repo/master
 static char *code_format =
 "#include <stdio.h>\n"
 "int main() { "
@@ -31,10 +36,88 @@ static char *code_format =
 "  return 0; "
 "}";
 
+<<<<<<< HEAD
 static void gen_rand_expr() {
   buf[0] = '\0';
 }
 
+=======
+void gen_rand_expr();
+char gen_rand_op();
+void gen(int c, int gen_space);
+void gen_num();
+
+void gen_num() {
+  int num = (rand() % 100)+1; // avoid zero to prevent div0
+  char num_buf[32];
+  sprintf(num_buf, "%d", num);
+  strcat(expr_buf, num_buf);
+}
+
+void gen_rand_space() {
+  int space_num = rand() % 2;
+  int len = strlen(expr_buf);
+  for (int i = 0; i < space_num; i ++) {
+    expr_buf[len + i] = ' ';
+  }
+  expr_buf[len + space_num] = '\0';
+}
+
+void gen(int c, int gen_space) {
+  if (gen_space) gen_rand_space();
+  int len = strlen(expr_buf);
+  expr_buf[len] = c;
+  expr_buf[len + 1] = '\0';
+  if (gen_space) gen_rand_space();
+}
+
+char gen_rand_op() {
+  char op = rand() % 7;
+  switch (op) {
+    case 0: gen('+', 1); break;
+    case 1: gen('-', 1); break;
+    case 2: gen('*', 1); break;
+    case 3: gen('/', 1); break;
+    case 4: gen('&', 0); gen('&', 0); break;
+    case 5: gen('=', 0); gen('=', 0); break;
+    default: gen('!', 0); gen('=', 0); break;
+  }
+  return op;
+}
+
+
+static int depth = 0;
+void gen_rand_expr() {
+  if (depth > 5) {
+    gen_num();
+    return;
+  }
+  depth ++;
+  switch (rand() % 4) {
+    case 0: gen_num(); break;
+    case 1: gen('(', 1); gen_rand_expr(); gen(')', 1); break;
+    case 2: 
+      int len = strlen(expr_buf);
+      char last_char = len > 1 ? expr_buf[len - 1] : '\0';
+      if (last_char != ')' && (last_char < '0' || last_char > '9')) {
+        gen('-', 1); gen_rand_expr();
+      }
+       break;
+    default: 
+    gen_rand_expr(); 
+    gen_rand_op();
+    // if(op == '/' )
+    //   gen_num();
+    // else
+    gen_rand_expr(); 
+    break;
+  }
+
+  depth --;
+}
+
+
+>>>>>>> pa_repo/master
 int main(int argc, char *argv[]) {
   int seed = time(0);
   srand(seed);
@@ -44,9 +127,16 @@ int main(int argc, char *argv[]) {
   }
   int i;
   for (i = 0; i < loop; i ++) {
+<<<<<<< HEAD
     gen_rand_expr();
 
     sprintf(code_buf, code_format, buf);
+=======
+    expr_buf[0] = '\0';
+    gen_rand_expr();
+
+    sprintf(code_buf, code_format, expr_buf);
+>>>>>>> pa_repo/master
 
     FILE *fp = fopen("/tmp/.code.c", "w");
     assert(fp != NULL);
@@ -63,7 +153,11 @@ int main(int argc, char *argv[]) {
     ret = fscanf(fp, "%d", &result);
     pclose(fp);
 
+<<<<<<< HEAD
     printf("%u %s\n", result, buf);
+=======
+    printf("%u %s\n", result, expr_buf);
+>>>>>>> pa_repo/master
   }
   return 0;
 }
