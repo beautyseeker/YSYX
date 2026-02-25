@@ -18,19 +18,14 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
-<<<<<<< HEAD
-=======
 #include <utils.h>
 #include <memory/paddr.h>
->>>>>>> pa_repo/master
 
 static int is_batch_mode = false;
 
 void init_regex();
 void init_wp_pool();
 
-<<<<<<< HEAD
-=======
 static int cmd_si(char *args);
 
 static int cmd_info(char *args);
@@ -47,7 +42,6 @@ int cmd_d(char *args);
 
 int cmd_b(char *hex_addr);
 
->>>>>>> pa_repo/master
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
   static char *line_read = NULL;
@@ -73,12 +67,6 @@ static int cmd_c(char *args) {
 
 
 static int cmd_q(char *args) {
-<<<<<<< HEAD
-  return -1;
-}
-
-static int cmd_help(char *args);
-=======
   nemu_state.state = NEMU_QUIT;
   return -1;
 }
@@ -220,7 +208,6 @@ int cmd_d(char *args) {
   }
   return 0;
 } 
->>>>>>> pa_repo/master
 
 static struct {
   const char *name;
@@ -230,9 +217,6 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-<<<<<<< HEAD
-
-=======
   {"si", "Step through N instructions", cmd_si },
   {"info", "Display register or watchpoint information", cmd_info },
   {"x", "Examine memory: x N EXPR", cmd_x },
@@ -240,7 +224,6 @@ static struct {
   {"w", "Set a watchpoint for an expression", cmd_w },
   {"d", "Delete a watchpoint with given NO.", cmd_d },
   {"b", "Set a breakpoint at given hexadecimal address", cmd_b },
->>>>>>> pa_repo/master
   /* TODO: Add more commands */
 
 };
@@ -318,9 +301,6 @@ void init_sdb() {
 
   /* Initialize the watchpoint pool. */
   init_wp_pool();
-<<<<<<< HEAD
-=======
 
   IFDEF(CONFIG_EXPR_TEST, load_random_expr_test());
->>>>>>> pa_repo/master
 }

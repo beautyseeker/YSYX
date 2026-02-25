@@ -19,14 +19,6 @@
  * Type 'man regex' for more information about POSIX regex functions.
  */
 #include <regex.h>
-<<<<<<< HEAD
-
-enum {
-  TK_NOTYPE = 256, TK_EQ,
-
-  /* TODO: Add more token types */
-
-=======
 #include <stdbool.h>
 
 enum {
@@ -48,7 +40,6 @@ enum {
   unary = 1,
   binary = 2,
   ternary = 3,
->>>>>>> pa_repo/master
 };
 
 static struct rule {
@@ -56,15 +47,6 @@ static struct rule {
   int token_type;
 } rules[] = {
 
-<<<<<<< HEAD
-  /* TODO: Add more rules.
-   * Pay attention to the precedence level of different rules.
-   */
-
-  {" +", TK_NOTYPE},    // spaces
-  {"\\+", '+'},         // plus
-  {"==", TK_EQ},        // equal
-=======
   {"0x[0-9a-fA-F]+", 'h'}, // hexadecimal number
   {"\\$[a-zA-Z0-9]+", TK_REG}, // register
 
@@ -87,14 +69,11 @@ static struct rule {
   {"[0-9]+", 'd'},    // decimal number
 
 
->>>>>>> pa_repo/master
 };
 
 #define NR_REGEX ARRLEN(rules)
 
 static regex_t re[NR_REGEX] = {};
-<<<<<<< HEAD
-=======
 static char expr_buf[65536] = {};
 
 static int get_priority(int type);
@@ -104,7 +83,6 @@ static int32_t eval(int p, int q, bool *success);
 extern word_t isa_reg_str2val(const char *s, bool *success);
 extern word_t paddr_read(paddr_t addr, int len);
 
->>>>>>> pa_repo/master
 
 /* Rules are used for many times.
  * Therefore we compile them only once before any usage.
@@ -128,11 +106,7 @@ typedef struct token {
   char str[32];
 } Token;
 
-<<<<<<< HEAD
-static Token tokens[32] __attribute__((used)) = {};
-=======
 static Token tokens[256] __attribute__((used)) = {};
->>>>>>> pa_repo/master
 static int nr_token __attribute__((used))  = 0;
 
 static bool make_token(char *e) {
@@ -149,20 +123,6 @@ static bool make_token(char *e) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
 
-<<<<<<< HEAD
-        Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
-            i, rules[i].regex, position, substr_len, substr_len, substr_start);
-
-        position += substr_len;
-
-        /* TODO: Now a new token is recognized with rules[i]. Add codes
-         * to record the token in the array `tokens'. For certain types
-         * of tokens, some extra actions should be performed.
-         */
-
-        switch (rules[i].token_type) {
-          default: TODO();
-=======
         // Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
         //     i, rules[i].regex, position, substr_len, substr_len, substr_start);
 
@@ -179,7 +139,6 @@ static bool make_token(char *e) {
             nr_token ++;
             break;
           ;
->>>>>>> pa_repo/master
         }
 
         break;
@@ -191,8 +150,6 @@ static bool make_token(char *e) {
       return false;
     }
   }
-<<<<<<< HEAD
-=======
   // 新增逻辑：区分单目运算符（负号）和双目运算符（减号）
   for (int i = 0; i < nr_token; i ++) {
     if (tokens[i].type == '-') {
@@ -209,15 +166,10 @@ static bool make_token(char *e) {
       }
     }
   }
->>>>>>> pa_repo/master
 
   return true;
 }
 
-<<<<<<< HEAD
-
-word_t expr(char *e, bool *success) {
-=======
 bool check_parentheses(int p, int q) {
   if (tokens[p].type != '(' || tokens[q].type != ')') return false;
   int cnt = 0;
@@ -360,18 +312,11 @@ word_t expr(char *e, bool *success) {
   *success = true;
   strncpy(expr_buf, e, sizeof(expr_buf) - 1);
   expr_buf[sizeof(expr_buf) - 1] = '\0';
->>>>>>> pa_repo/master
   if (!make_token(e)) {
     *success = false;
     return 0;
   }
 
-<<<<<<< HEAD
-  /* TODO: Insert codes to evaluate the expression. */
-  TODO();
-
-  return 0;
-=======
   word_t result = eval(0, nr_token - 1, success);
 
   return result;
@@ -414,5 +359,4 @@ void load_random_expr_test() {
   Log(ANSI_FG_BLUE "Total: %d, " ANSI_FG_GREEN "Passed: %d, " ANSI_FG_RED "Failed: %d" ANSI_NONE, 
     total, passed, failed);
   Log("====================    Expression test ends    =========================\n");
->>>>>>> pa_repo/master
 }

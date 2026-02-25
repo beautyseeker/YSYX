@@ -24,12 +24,6 @@ const char *regs[] = {
 };
 
 void isa_reg_display() {
-<<<<<<< HEAD
-}
-
-word_t isa_reg_str2val(const char *s, bool *success) {
-  return 0;
-=======
   printf("=== General Purpose Registers ===\n");
   for (int i = 0; i < 32; i++) {
     printf("%s: 0x%08x\t", reg_name(i), gpr(i));
@@ -58,5 +52,4 @@ word_t isa_reg_str2val(const char *s, bool *success) {
   *success = false;
   Log(ANSI_FG_RED "Invalid register name:\\$%s\n" ANSI_NONE, s);
   return -1;
->>>>>>> pa_repo/master
 }

@@ -21,13 +21,8 @@
 #include <string.h>
 
 // this should be enough
-<<<<<<< HEAD
-static char buf[65536] = {};
-static char code_buf[65536 + 128] = {}; // a little larger than `buf`
-=======
 static char expr_buf[65536] = {};
 static char code_buf[65536 + 128] = {}; // a little larger than `expr_buf`
->>>>>>> pa_repo/master
 static char *code_format =
 "#include <stdio.h>\n"
 "int main() { "
@@ -36,12 +31,6 @@ static char *code_format =
 "  return 0; "
 "}";
 
-<<<<<<< HEAD
-static void gen_rand_expr() {
-  buf[0] = '\0';
-}
-
-=======
 void gen_rand_expr();
 char gen_rand_op();
 void gen(int c, int gen_space);
@@ -117,7 +106,6 @@ void gen_rand_expr() {
 }
 
 
->>>>>>> pa_repo/master
 int main(int argc, char *argv[]) {
   int seed = time(0);
   srand(seed);
@@ -127,16 +115,10 @@ int main(int argc, char *argv[]) {
   }
   int i;
   for (i = 0; i < loop; i ++) {
-<<<<<<< HEAD
-    gen_rand_expr();
-
-    sprintf(code_buf, code_format, buf);
-=======
     expr_buf[0] = '\0';
     gen_rand_expr();
 
     sprintf(code_buf, code_format, expr_buf);
->>>>>>> pa_repo/master
 
     FILE *fp = fopen("/tmp/.code.c", "w");
     assert(fp != NULL);
@@ -153,11 +135,7 @@ int main(int argc, char *argv[]) {
     ret = fscanf(fp, "%d", &result);
     pclose(fp);
 
-<<<<<<< HEAD
-    printf("%u %s\n", result, buf);
-=======
     printf("%u %s\n", result, expr_buf);
->>>>>>> pa_repo/master
   }
   return 0;
 }

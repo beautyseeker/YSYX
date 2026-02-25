@@ -14,17 +14,11 @@
 ***************************************************************************************/
 
 #include <cpu/cpu.h>
-<<<<<<< HEAD
-#include <cpu/decode.h>
-#include <cpu/difftest.h>
-#include <locale.h>
-=======
 #include "../isa/riscv32/local-include/reg.h"
 #include <cpu/decode.h>
 #include <cpu/difftest.h>
 #include <locale.h>
 #include "../monitor/sdb/sdb.h"
->>>>>>> pa_repo/master
 
 /* The assembly code of instructions executed is only output to the screen
  * when the number of instructions executed is less than this value.
@@ -37,12 +31,6 @@ CPU_state cpu = {};
 uint64_t g_nr_guest_inst = 0;
 static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
-<<<<<<< HEAD
-
-void device_update();
-
-static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
-=======
 static char iring_buf[32][128];
 static char symbol_buf[256];
 
@@ -52,20 +40,15 @@ static void print_iring() __attribute__((unused));
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 
->>>>>>> pa_repo/master
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
-<<<<<<< HEAD
-  IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
-=======
   IFDEF(CONFIG_FTRACE, if(symbol_buf[0] != '\0') {printf("%sftrace pc:0x%08x: %s\n", ANSI_FG_YELLOW, _this->pc, symbol_buf);});
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
 #ifdef CONFIG_WATCHPOINT
   wp_scan_wp();
 #endif
->>>>>>> pa_repo/master
 }
 
 static void exec_once(Decode *s, vaddr_t pc) {
@@ -93,14 +76,6 @@ static void exec_once(Decode *s, vaddr_t pc) {
   memset(p, ' ', space_len);
   p += space_len;
 
-<<<<<<< HEAD
-  void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
-  disassemble(p, s->logbuf + sizeof(s->logbuf) - p,
-      MUXDEF(CONFIG_ISA_x86, s->snpc, s->pc), (uint8_t *)&s->isa.inst, ilen);
-#endif
-}
-
-=======
 #ifdef CONFIG_FTRACE
   get_symbol_str(s);
 #endif
@@ -154,7 +129,6 @@ void get_symbol_str(Decode *s) {
   }
 }
 
->>>>>>> pa_repo/master
 static void execute(uint64_t n) {
   Decode s;
   for (;n > 0; n --) {
@@ -166,8 +140,6 @@ static void execute(uint64_t n) {
   }
 }
 
-<<<<<<< HEAD
-=======
 static void print_iring() {
   int i;
   int n = ARRLEN(iring_buf);
@@ -180,7 +152,6 @@ static void print_iring() {
   printf(ANSI_FMT("--------------End of Instruction Ring Buffer-------------\n", ANSI_FG_CYAN));
 }
 
->>>>>>> pa_repo/master
 static void statistic() {
   IFNDEF(CONFIG_TARGET_AM, setlocale(LC_NUMERIC, ""));
 #define NUMBERIC_FMT MUXDEF(CONFIG_TARGET_AM, "%", "%'") PRIu64
@@ -221,10 +192,7 @@ void cpu_exec(uint64_t n) {
            (nemu_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) :
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           nemu_state.halt_pc);
-<<<<<<< HEAD
-=======
       IFDEF(CONFIG_ITRACE, if (nemu_state.halt_ret != 0) { print_iring(); });
->>>>>>> pa_repo/master
       // fall through
     case NEMU_QUIT: statistic();
   }

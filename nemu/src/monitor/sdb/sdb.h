@@ -17,11 +17,6 @@
 #define __SDB_H__
 
 #include <common.h>
-<<<<<<< HEAD
-
-word_t expr(char *e, bool *success);
-
-=======
 typedef struct watchpoint {
   int NO;
   struct watchpoint *next;
@@ -45,5 +40,4 @@ void load_random_expr_test();
 void init_elf(const char *filename);
 const char* get_symbol_name(paddr_t addr);
 
->>>>>>> pa_repo/master
 #endif

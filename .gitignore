@@ -5,18 +5,12 @@
 !/nexus-am/*
 !/nanos-lite/*
 !/navy-apps/*
-<<<<<<< HEAD
 !/npc/**
-=======
->>>>>>> pa_repo/master
 !Makefile
 !README.md
 !.gitignore
 !init.sh
-<<<<<<< HEAD
 /nvboard
 /yosys-sta
-=======
->>>>>>> pa_repo/master
 /fceux-am
 /am-kernels
