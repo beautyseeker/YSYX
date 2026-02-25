@@ -77,6 +77,24 @@ package defs_pkg;
     } Ctrl_sig_t; 
 
     // 添加默认内存初始化文件路径
-    parameter string RAM_INIT_FILE_DEFAULT = "./resource/addi.hex";
-    parameter string ROM_INIT_FILE_DEFAULT = "./resource/addi.hex";
+    parameter string RAM_FILE_DEFAULT = "./resource/addi.hex";
+    parameter string ROM_FILE_DEFAULT = "./resource/addi.hex";
+    function automatic string get_init_file(string arg_name, string default_val);
+        string file_path;
+        string plus_arg_fmt;
+        
+        file_path = default_val;
+        
+        // 构造格式字符串，例如 "ram_file=%s"
+        plus_arg_fmt = {arg_name, "=%s"};
+
+        // 尝试获取命令行参数
+        if ($value$plusargs(plus_arg_fmt, file_path)) begin
+            $display("Init: Loading %s from command line: %s", arg_name, file_path);
+        end else begin
+            $display("Init: Loading %s from default: %s", arg_name, file_path);
+        end
+
+        return file_path;
+    endfunction
 endpackage

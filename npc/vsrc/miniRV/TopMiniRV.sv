@@ -8,7 +8,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 20, REG_COUNT = 3
 
     output logic [ADDR_WIDTH-1:0] PC_current,
     output logic [DATA_WIDTH-1:0] instruction,
-    output logic [DATA_WIDTH-1:0] regs [REG_COUNT-1:0], // 输出整个寄存器文件状态，便于调试
+    output logic [DATA_WIDTH-1:0] gpr [REG_COUNT-1:0], // 输出整个寄存器文件状态，便于调试
     output exception_t            fetch_exception
 );
     // 模块实例化
@@ -31,6 +31,15 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 20, REG_COUNT = 3
         .exception(fetch_exception)
     );
 
+    IDU #(.DATA_WIDTH(DATA_WIDTH)) idu (
+        .inst(instruction),
+        .rs1_addr(Rs1_addr),
+        .rs2_addr(Rs2_addr),
+        .rd_addr(Rd_addr),
+        .imm(imm_ext),
+        .ctrl_sig(ctrl_sig)
+    );
+
     RegisterFile #(.DATA_WIDTH(DATA_WIDTH), .REG_COUNT(REG_COUNT)) regfile (
         .clk(clk),
         .rst_n(rst_n),
@@ -41,16 +50,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 20, REG_COUNT = 3
         .rs2_data(Rs2_data),
         .write_data(Rd_data),
         .reg_write_en(ctrl_sig.reg_write_en),
-        .regs(regs) // 输出整个寄存器文件状态，便于调试
-    );
-
-    IDU #(.DATA_WIDTH(DATA_WIDTH)) idu (
-        .inst(instruction),
-        .rs1_addr(Rs1_addr),
-        .rs2_addr(Rs2_addr),
-        .rd_addr(Rd_addr),
-        .imm(imm_ext),
-        .ctrl_sig(ctrl_sig)
+        .gpr(gpr) // 输出整个寄存器文件状态，便于调试
     );
 
     logic [DATA_WIDTH-1:0] alu_b;
@@ -80,7 +80,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 20, REG_COUNT = 3
     logic [ADDR_WIDTH-1:0] PC_next;
     logic [ADDR_WIDTH-1:0] PCInc4;
     logic is_jal;
-    assign is_jal = instruction[3]; // JAL指令
+    assign is_jal = instruction[3]; // 区分无条件跳转JAL和JALR
     assign PCInc4 = PC_current + 4;
 
     always_comb begin

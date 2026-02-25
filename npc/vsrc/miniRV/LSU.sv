@@ -108,7 +108,9 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            $readmemh("./resource/addi.hex", MEM); // 从文件初始化内存
+            static string path = get_init_file("ram_file", RAM_FILE_DEFAULT);
+            $display("RAM initialized from: %s", path);
+            $readmemh(path, MEM);
         end else if (mem_write_en && !misaligned_access && !addr_out_of_range) begin
             case (mem_size)
                 MEM_BYTE: begin

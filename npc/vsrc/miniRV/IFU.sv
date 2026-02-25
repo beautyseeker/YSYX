@@ -25,8 +25,9 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
     localparam ROM_DEPTH = 1 << (ADDR_WIDTH - ALIGNED_WIDTH); 
     logic [DATA_WIDTH-1:0] ROM [0:ROM_DEPTH-1];
     initial begin
-        // 这里可以预加载指令到ROM中，或者在仿真时通过文件加载
-        $readmemh("./resource/addi.hex", ROM);
+        static string path = get_init_file("rom_file", ROM_FILE_DEFAULT);
+        $display("ROM initialized from: %s", path);
+        $readmemh(path, ROM);
     end
 
     logic fetch_exception;

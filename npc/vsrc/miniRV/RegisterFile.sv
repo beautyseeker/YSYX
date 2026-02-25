@@ -10,26 +10,23 @@ module RegisterFile #(REG_COUNT = 32, DATA_WIDTH = 32)
 
     output logic [DATA_WIDTH-1:0] rs1_data,
     output logic [DATA_WIDTH-1:0] rs2_data,
-    output logic [DATA_WIDTH-1:0] regs [REG_COUNT-1:0] // 输出整个寄存器文件状态，便于调试
+    output logic [DATA_WIDTH-1:0] gpr [REG_COUNT-1:0] // 输出整个寄存器文件状态，便于调试
 );
     parameter REG_ADDR_WIDTH = $clog2(REG_COUNT);
-    logic [DATA_WIDTH-1:0] reg_file [REG_COUNT-1:0];
     // Read operation (combinational)
-    assign rs1_data = (rs1_addr == 0) ? 0 : reg_file[rs1_addr]; // x0 is always zero
-    assign rs2_data = (rs2_addr == 0) ? 0 : reg_file[rs2_addr]; // x0 is always zero
+    assign rs1_data = (rs1_addr == 0) ? 0 : gpr[rs1_addr]; // x0 is always zero
+    assign rs2_data = (rs2_addr == 0) ? 0 : gpr[rs2_addr]; // x0 is always zero
 
     // Write operation (synchronous)
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             integer i;
             for (i = 0; i < REG_COUNT; i++) begin
-                reg_file[i] <= {DATA_WIDTH{1'b0}};
+                gpr[i] <= {DATA_WIDTH{1'b0}};
             end
         end else if (reg_write_en && rd_addr != 0) begin  // x0寄存器禁止写入
-            reg_file[rd_addr] <= write_data;
+            gpr[rd_addr] <= write_data;
         end
     end
 
-    // 输出整个寄存器文件状态，便于调试
-    assign regs = reg_file;
 endmodule

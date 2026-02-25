@@ -177,6 +177,8 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
 
             7'b1110011: begin // SYSTEM (ECALL/EBREAK)
                 //此处将调用DPI-C函数来处理系统调用实现停机
+                $display("ECALL/EBREAK encountered at time %t. Simulation will stop.", $time);
+                $finish; // 直接结束仿真
             end
             default: begin
                 ctrl_sig = 'x; // INVALID instruction
