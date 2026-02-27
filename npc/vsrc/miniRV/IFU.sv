@@ -31,7 +31,7 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
             path = ROM_FILE_DEFAULT;
         end
         $display("ROM initialized from: %s", path);
-        $readmemh(path, ROM);
+        $readmemh(path, ROM, 0); // 从RESET_VEC开始加载指令
     end
 
     logic fetch_exception;

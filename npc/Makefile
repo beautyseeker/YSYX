@@ -66,7 +66,7 @@ INCFLAGS = $(addprefix -I, $(INC_PATH))
 # 修改如下：
 # 1. -DTOP_NAME=V$(TOPNAME)  -> 定义类名为 VALU (注意没有转义引号，它是代码中的类型)
 # 2. -DTOP_HEADER="\"V$(TOPNAME).h\"" -> 定义引用路径为 "VALU.h"
-CYCLES ?= 100000
+CYCLES ?= 10000
 CXXFLAGS += $(INCFLAGS) -DTOP_NAME=V$(TOPNAME) -DTOP_HEADER="\"V$(TOPNAME).h\""
 CXXFLAGS += -g -DSIM_CYCLES=$(CYCLES)
 LDFLAGS += -lcapstone

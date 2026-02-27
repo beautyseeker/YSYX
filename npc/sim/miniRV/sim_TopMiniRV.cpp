@@ -1,6 +1,7 @@
 #include "Vtop_TopMiniRV.h"
 #include "verilated.h"
 #include <capstone/capstone.h>
+#include <sys/time.h>
 #define DEFAULT_SIM_CYCLES SIM_CYCLES
 #define RING_BUFFER_SIZE 5
 
@@ -21,6 +22,7 @@ typedef struct {
 static const char *img_path = nullptr;
 static const char *vcd_path = nullptr;
 static Vtop_TopMiniRV *g_top = nullptr;
+static int nr;
 static cpu_state_t cpu_state;
 static cpu_state_t ring_buffer[RING_BUFFER_SIZE]; // 环形缓冲区，保存最近5条指令的状态
 
@@ -42,13 +44,11 @@ void print_rv_disasm(uint32_t inst, uint32_t pc) {
     size_t count;
 
     cs_open(CS_ARCH_RISCV, CS_MODE_RISCV32, &handle);
-    uint32_t reversed_inst = ((inst & 0xFF) << 24) | ((inst & 0xFF00) << 8) | ((inst & 0xFF0000) >> 8) | ((inst & 0xFF000000) >> 24);
-    count = cs_disasm(handle, (uint8_t*)&reversed_inst, 4, pc, 1, &insn);
-    // count = cs_disasm(handle, (uint8_t*)&inst, 4, pc, 1, &insn);
+    count = cs_disasm(handle, (uint8_t*)&inst, 4, pc, 1, &insn);
 
     if (count > 0) {
         printf("Assert error in %s PC:0x%08x: inst:0x%08x asm:%s %s\n", 
-            get_filename(img_path), pc, reversed_inst, insn[0].mnemonic, insn[0].op_str);
+            get_filename(img_path), pc, inst, insn[0].mnemonic, insn[0].op_str);
         cs_free(insn, count);
     } else {
         printf("0x%08x: <invalid>\n", pc);
@@ -58,12 +58,12 @@ void print_rv_disasm(uint32_t inst, uint32_t pc) {
 
 extern "C" void handle_sys_brk() {
     if (g_top) {
-        printf("sys_brk invoked in %s! PC=0x%08x INST=0x%08x\n",
-               get_filename(img_path), g_top->PC_current, g_top->instruction);
+        printf("\033[32msys_brk invoked in %s. Instructions executed: %d PC=0x%08x INST=0x%08x\033[0m\n",
+               get_filename(img_path), nr, g_top->PC_current, g_top->instruction);
     } else {
         printf("sys_brk invoked in %s! (top not initialized)\n", get_filename(img_path));
     }
-    exit(-1);
+    exit(0);
 }
 
 extern "C" void handle_mem_access_error(uint32_t addr, uint32_t mapped_addr) {
@@ -99,6 +99,45 @@ extern "C" const char* get_img_path() {
     }
     return img_path ? img_path : "";
 }
+
+
+static uint64_t get_time_internal() {
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    uint64_t us = now.tv_sec * 1000000 + now.tv_usec;
+    return us;
+}
+
+static uint64_t boot_time = 0;
+
+uint64_t get_time() {
+  if (boot_time == 0) boot_time = get_time_internal();
+  uint64_t now = get_time_internal();
+  return now - boot_time;
+}
+
+void init_rand() {
+  srand(get_time_internal());
+}
+
+extern "C" void mmio_write(uint32_t addr, uint32_t data) {
+    printf("MMIO Write - Address: 0x%08x, Data: 0x%08x\n", addr, data);
+    if(addr == 0x10000000) {
+        // 模拟写入MMIO寄存器
+        printf("MMIO Write to 0x10000000: 0x%08x\n", data);
+    }
+}
+
+extern "C" uint64_t mmio_read(uint32_t addr) {
+    printf("MMIO Read - Address: 0x%08x\n", addr);
+    if (addr == 0x10000000) {
+        uint64_t now = get_time_internal();
+        printf("MMIO Read time value: 0x%016lx\n", now);
+        return now;
+    }
+    return 0; // 默认返回0
+}
+
 static const uint32_t RAM_BASE = 0x80000000;
 static const uint32_t RAM_SIZE = 1 << 20; // 1MB
 
@@ -107,9 +146,6 @@ int main(int argc, char **argv) {
     Vtop_TopMiniRV* top = new Vtop_TopMiniRV;
     g_top = top;
     uint64_t arg_cycles = 0;
-    g_top->gpr[2] = RAM_BASE + RAM_SIZE; // 初始化栈顶指针为RAM末尾地址
-    g_top->gpr[3] = RAM_BASE; // 初始化全局指针为RAM起始地址
-    g_top->gpr[4] = 0; // 初始化线程指针为0
 
     for (int i = 1; i < argc; ++i) {
         if (strncmp(argv[i], "IMG=", 4) == 0) {
@@ -128,6 +164,7 @@ int main(int argc, char **argv) {
     // 初始化信号
     top->clk = 0;
     top->rst_n = 0;
+    nr = 0;
 
     // 复位
     for (int i = 0; i < 5; ++i) {
@@ -140,7 +177,6 @@ int main(int argc, char **argv) {
     uint32_t gpr_mirror[32] = {0}; // 寄存器镜像备份
 
     for (int i = 0; i < MAX_CYCLES; ++i) {
-
         top->clk = 1;
         top->eval();
         bool changed = false;
@@ -153,7 +189,6 @@ int main(int argc, char **argv) {
         }
 
         if (changed) {
-
             for (int r = 0; r < 32; r++) {
                 if (top->gpr[r] != gpr_mirror[r]) {
                     printf("[%s:0x%08x] ", regs[r], top->gpr[r]);
@@ -163,17 +198,20 @@ int main(int argc, char **argv) {
             printf("\n");
         }
         if(Verilated::gotFinish()) {
-            printf("Simulation finished at cycle %d / %lu\n", i, MAX_CYCLES);
+            printf("Simulation finished at cycle %d / %lu\n", nr, MAX_CYCLES);
             break;
         }
-        ring_buffer[i % 5].PC_current = top->PC_current;
-        ring_buffer[i % 5].instruction = top->instruction;
+        ring_buffer[nr % 5].PC_current = top->PC_current;
+        ring_buffer[nr % 5].instruction = top->instruction;
 
-        printf("pc:0x%08x inst:0x%08x  sim step: %d/%lu\n ", top->PC_current, top->instruction, i, MAX_CYCLES);
+        printf("pc:0x%08x inst:0x%08x  sim step: %d/%lu\n ", top->PC_current, top->instruction, nr, MAX_CYCLES);
         top->clk = 0;
         top->eval();
+        nr++;
     }
 
+    printf("\33[31m Simulation %s reached the maximum cycle limit\33[0m.\n", get_filename(img_path));
+
     delete top;
-    return 0;
+    return -1;
 }
