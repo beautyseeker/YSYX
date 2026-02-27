@@ -24,8 +24,10 @@ image: image-dep
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
 	@echo + OBJCOPY "->" $(IMAGE_REL).bin
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
+	@xxd -p -c 4 $(IMAGE).bin $(IMAGE).hex
+	@echo +xxd "->" $(IMAGE).hex
 
 run: insert-arg
-	echo "TODO: add command here to run simulation"
+	$(MAKE) -C $(NPC_HOME) IMAGE=$(IMAGE).hex MODULE=TopMiniRV sim
 
 .PHONY: insert-arg

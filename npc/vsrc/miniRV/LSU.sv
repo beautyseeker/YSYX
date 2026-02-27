@@ -1,7 +1,8 @@
 // `include "defs_pkg.sv"
 import defs_pkg::*;
+import "DPI-C" function void handle_mem_access_error(input logic [31:0] addr, input logic [31:0] mapped_addr);
 
-module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
+module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_0000)
 // RAM地址空间32bit * 2^18 = 1MB,访存地址4字节对齐
 (
     input logic                  clk,
@@ -19,17 +20,20 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
 
     localparam BYTES_PER_WORD = DATA_WIDTH / 8;
     localparam ALIGNED_WIDTH = $clog2(BYTES_PER_WORD);
+    localparam PMEM_SIZE = 1 << ADDR_WIDTH; // 1MB内存空间
+    logic [DATA_WIDTH-1:0] mapped_addr;
+    assign mapped_addr = addr - PMEM_BASE; // 将访问地址映射到内存地址空间
     logic [DATA_WIDTH-1:0] MEM [2**(ADDR_WIDTH)-1:0];
 
     logic [ADDR_WIDTH-1:0] word_idx;
-    logic [DATA_WIDTH/4-1:0] byte_data;
-    logic [DATA_WIDTH/2-1:0] half_data;
-    logic [DATA_WIDTH-1:0] word_data;
+    logic [7:0] byte_data;
+    logic [15:0] half_data;
+    logic [31:0] word_data;
     logic [ALIGNED_WIDTH-1:0] byte_offset;
     logic misaligned_access;
     logic addr_out_of_range;
-    assign byte_offset = addr[ALIGNED_WIDTH-1:0];
-    assign word_idx = addr[ADDR_WIDTH-1+ALIGNED_WIDTH:ALIGNED_WIDTH]; // 4字节对齐地址
+    assign byte_offset = mapped_addr[ALIGNED_WIDTH-1:0];
+    assign word_idx = mapped_addr[ADDR_WIDTH-1+ALIGNED_WIDTH:ALIGNED_WIDTH]; // 4字节对齐地址
 
     always_comb begin : access_check
         misaligned_access = 1'b0;
@@ -59,9 +63,12 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
                     misaligned_access = 1'b0;
                 end
             endcase
-            if (word_idx >= 2**(ADDR_WIDTH-ALIGNED_WIDTH)) begin
+            if (mapped_addr >= PMEM_SIZE) begin
                 addr_out_of_range = 1'b1;
-                $error("Address out of range at address %h at time %t", addr, $time);
+                $warning("Address: %h out of range[%h, %h]  address mapped address: %h at time %t",
+                 addr, PMEM_BASE, PMEM_BASE + PMEM_SIZE - 1, mapped_addr, $time);
+                //给我把导致地址越界的前5条指令和PC打印出来，我要看看是什么指令访问了越界地址
+                handle_mem_access_error(addr, mapped_addr);
             end
         end
     end
@@ -90,7 +97,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
                     load_data = mem_sign ? {{16{half_data[15]}}, half_data} : {16'b0, half_data};
                 end
                 MEM_WORD: begin
-                    word_data = MEM[word_idx];
+                    word_data = MEM[word_idx][byte_offset * 8 +: 32];
                     load_data = word_data;
                 end
                 default: load_data = 'x;
@@ -106,11 +113,19 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
     assign byte_mask = ({{(DATA_WIDTH-8){1'b0}}, 8'hFF}) << (byte_offset * 8);
     assign half_mask = ({{(DATA_WIDTH-16){1'b0}}, 16'hFFFF}) << (byte_offset * 8);
 
+    initial begin
+        static string path = get_img_path();
+        if (path == "") begin
+            path = RAM_FILE_DEFAULT;
+        end
+        $display("RAM initialized from: %s", path);
+        $readmemh(path, MEM);
+    end
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            static string path = get_init_file("ram_file", RAM_FILE_DEFAULT);
-            $display("RAM initialized from: %s", path);
-            $readmemh(path, MEM);
+            // 复位时清空内存（可选，根据需求决定是否需要）
+
         end else if (mem_write_en && !misaligned_access && !addr_out_of_range) begin
             case (mem_size)
                 MEM_BYTE: begin

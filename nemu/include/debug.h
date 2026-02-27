@@ -40,8 +40,6 @@
 
 #define TODO() panic("please implement me")
 
-<<<<<<< HEAD
-=======
 #define CHECK_AND_RETURN(cond, fmt, ...) \
   do { \
     if (cond) { \
@@ -50,5 +48,4 @@
     } \
   } while (0)
 
->>>>>>> pa_repo/master
 #endif

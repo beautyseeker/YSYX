@@ -1,12 +1,12 @@
 // `include "defs_pkg.sv"
 import defs_pkg::*;
 
-module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 20, REG_COUNT = 32)
+module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 26, REG_COUNT = 32, RESET_VEC = 32'h8000_0000)
 (
     input logic                  clk,
     input logic                  rst_n,
 
-    output logic [ADDR_WIDTH-1:0] PC_current,
+    output logic [DATA_WIDTH-1:0] PC_current,
     output logic [DATA_WIDTH-1:0] instruction,
     output logic [DATA_WIDTH-1:0] gpr [REG_COUNT-1:0], // 输出整个寄存器文件状态，便于调试
     output exception_t            fetch_exception
@@ -22,7 +22,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 20, REG_COUNT = 3
 
     Ctrl_sig_t ctrl_sig;
 
-    IFU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH)) ifu (
+    IFU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH), .RESET_VEC(RESET_VEC)) ifu (
         .clk(clk),
         .rst_n(rst_n),
         .PC_next(PC_next),
@@ -77,8 +77,8 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 20, REG_COUNT = 3
     );
 
     logic ALU_zero;
-    logic [ADDR_WIDTH-1:0] PC_next;
-    logic [ADDR_WIDTH-1:0] PCInc4;
+    logic [DATA_WIDTH-1:0] PC_next;
+    logic [DATA_WIDTH-1:0] PCInc4;
     logic is_jal;
     assign is_jal = instruction[3]; // 区分无条件跳转JAL和JALR
     assign PCInc4 = PC_current + 4;
@@ -87,15 +87,15 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 20, REG_COUNT = 3
         if(ctrl_sig.jmp_en)
             case(ctrl_sig.PC_sel)
                 PC_PLUS4: PC_next = PCInc4;
-                PC_BRANCH: PC_next = ALU_zero ? PC_current + imm_ext[ADDR_WIDTH-1:0] : PCInc4; // 分支跳转
-                PC_JMP: PC_next = is_jal ? PC_current + imm_ext[ADDR_WIDTH-1:0] : alu_result[ADDR_WIDTH-1:0] & ~1; // 无条件跳转
+                PC_BRANCH: PC_next = ALU_zero ? PC_current + imm_ext : PCInc4; // 分支跳转
+                PC_JMP: PC_next = is_jal ? PC_current + imm_ext : alu_result & ~1; // 无条件跳转
                 default: PC_next = PCInc4;
             endcase
         else
             PC_next = PCInc4; // 默认顺序执行
     end
 
-    LSU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH)) lsu (
+    LSU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH), .PMEM_BASE(RESET_VEC)) lsu (
         .clk(clk),
         .rst_n(rst_n),
         .addr(alu_result), // 地址由ALU计算得到

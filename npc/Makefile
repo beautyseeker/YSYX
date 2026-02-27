@@ -66,9 +66,10 @@ INCFLAGS = $(addprefix -I, $(INC_PATH))
 # 修改如下：
 # 1. -DTOP_NAME=V$(TOPNAME)  -> 定义类名为 VALU (注意没有转义引号，它是代码中的类型)
 # 2. -DTOP_HEADER="\"V$(TOPNAME).h\"" -> 定义引用路径为 "VALU.h"
-CYCLES ?= 10000
+CYCLES ?= 100000
 CXXFLAGS += $(INCFLAGS) -DTOP_NAME=V$(TOPNAME) -DTOP_HEADER="\"V$(TOPNAME).h\""
 CXXFLAGS += -g -DSIM_CYCLES=$(CYCLES)
+LDFLAGS += -lcapstone
 
 $(BOARD_BIN): $(VSRCS) $(CSRCS) $(NVBOARD_ARCHIVE)
 	@rm -rf $(OBJ_DIR)
@@ -87,11 +88,12 @@ $(SIM_BIN): $(VSRCS) $(CPP_TB)
 
 
 VCD_FILE ?= $(WAVE_DIR)/$(TOPNAME).vcd
+SIM_ARGS ?= IMG=$(IMAGE) VCD=$(VCD_FILE) CYCLES=$(CYCLES)
 sim: $(SIM_BIN)
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 	@echo "Write this Makefile by your self."
-	@$(abspath $(SIM_BIN))
-	@echo "Simulation finished. Waveform saved to: $(VCD_FILE)"
+	$(abspath $(SIM_BIN)) $(SIM_ARGS)
+# 	@echo "Simulation finished. Waveform saved to: $(VCD_FILE)"
 
 
 show:$(SIM_BIN)

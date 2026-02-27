@@ -6,7 +6,7 @@ module WBU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18)
     // 来自EXU的结果
     input logic [DATA_WIDTH-1:0] alu_result,
     input logic [DATA_WIDTH-1:0] mem_load_data,
-    input logic [ADDR_WIDTH-1:0] PC_current,
+    input logic [DATA_WIDTH-1:0] PC_current,
     // 来自IDU的控制信号和目的寄存器地址
     input WB_sel_e WB_sel,
 

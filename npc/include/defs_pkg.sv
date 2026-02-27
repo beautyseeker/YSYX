@@ -77,8 +77,8 @@ package defs_pkg;
     } Ctrl_sig_t; 
 
     // 添加默认内存初始化文件路径
-    parameter string RAM_FILE_DEFAULT = "./resource/addi.hex";
-    parameter string ROM_FILE_DEFAULT = "./resource/addi.hex";
+    parameter string RAM_FILE_DEFAULT = "/home/passion/ysyx-workbench/am-kernels/tests/cpu-tests/build/fib-minirv-npc.hex";
+    parameter string ROM_FILE_DEFAULT = "/home/passion/ysyx-workbench/am-kernels/tests/cpu-tests/build/fib-minirv-npc.hex";
     function automatic string get_init_file(string arg_name, string default_val);
         string file_path;
         string plus_arg_fmt;

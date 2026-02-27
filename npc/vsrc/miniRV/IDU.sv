@@ -1,6 +1,7 @@
 
 // `include "defs_pkg.sv"
 import defs_pkg::*;
+import "DPI-C" function void handle_sys_brk();
 
 module IDU #(parameter DATA_WIDTH = 32)
 (
@@ -178,7 +179,8 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
             7'b1110011: begin // SYSTEM (ECALL/EBREAK)
                 //此处将调用DPI-C函数来处理系统调用实现停机
                 $display("ECALL/EBREAK encountered at time %t. Simulation will stop.", $time);
-                $finish; // 直接结束仿真
+                handle_sys_brk(); // 调用DPI-C函数处理系统调用
+                // $finish; // 直接结束仿真
             end
             default: begin
                 ctrl_sig = 'x; // INVALID instruction
