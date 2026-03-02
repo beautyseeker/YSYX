@@ -136,6 +136,17 @@ private:
         }
     }
 
+    std::string get_asm() const {
+        return asm_str;
+    }
+
+    std::string log_str() const {
+        char buf[128];
+        snprintf(buf, sizeof(buf), "PC=0x%08x INST=0x%08x ASM=%s", 
+        top->PC_current, top->instruction, asm_str.c_str());
+        return std::string(buf);
+    }
+
     uint64_t get_time_internal() const {
         struct timeval now;
         gettimeofday(&now, NULL);
@@ -218,7 +229,7 @@ public:
         int count = (inst_nr < RING_BUFFER_SIZE) ? inst_nr : RING_BUFFER_SIZE;
         for (int i = 1; i < count+1; i++) {
             int idx = (start + i) % RING_BUFFER_SIZE;
-            printf(ANSI_FMT("[%d] %s\n", ANSI_FG_BLUE), inst_nr - count + i, ring_buffer[idx].to_string().c_str());
+            printf(ANSI_FMT("[%ld] %s\n", ANSI_FG_BLUE), inst_nr - count + i, ring_buffer[idx].to_string().c_str());
         }
     }
 
@@ -227,8 +238,8 @@ public:
         if(state == 0) {
             printf(ANSI_FMT("HIT A GOOD TRAP in %s!\n", ANSI_FG_GREEN), img_name.c_str());
         } else {
-            printf(ANSI_FMT("HIT A BAD TRAP in %s due to %s!\n", ANSI_FG_RED), 
-            img_name.c_str(), error_cause_names[error_cause]);
+            printf(ANSI_FMT("[%ld] %s \nHIT A BAD TRAP in %s due to %s!\n", ANSI_FG_RED), 
+            inst_nr, log_str().c_str(), img_name.c_str(), error_cause_names[error_cause]);
         }
         print_statistics();
     }

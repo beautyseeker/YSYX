@@ -68,7 +68,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
                     misaligned_access = 1'b0;
                 end
             endcase
-            if (mapped_addr >= PMEM_SIZE && !(addr inside {SERIAL_ADDR, RTC_ADDR})) begin
+            if (mapped_addr >= PMEM_SIZE && !(addr inside {SERIAL_ADDR, RTC_ADDR, RTC_ADDR+BYTES_PER_WORD})) begin
                 addr_out_of_range = 1'b1;
                 $warning("Address: %h out of range[%h, %h]  address mapped address: %h at time %t",
                  addr, PMEM_BASE, PMEM_BASE + PMEM_SIZE - 1, mapped_addr, $time);
@@ -108,13 +108,13 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
                 default: load_data = 'x;
             endcase
         end
-        else if (mem_read_en && addr == RTC_ADDR) begin
+        else if (mem_read_en && (addr == RTC_ADDR || addr == RTC_ADDR + BYTES_PER_WORD)) begin
             uint64_time = mmio_read(addr);
             $display("SV MMIO Read from RTC: data=%h at time %t", uint64_time, $time);
             case (mem_size)
                 MEM_BYTE: load_data = mem_sign ? {{24{uint64_time[7]}}, uint64_time[7:0]} : {24'b0, uint64_time[7:0]};
                 MEM_HALF: load_data = mem_sign ? {{16{uint64_time[15]}}, uint64_time[15:0]} : {16'b0, uint64_time[15:0]};
-                MEM_WORD: load_data = uint64_time[31:0];
+                MEM_WORD: load_data = (addr == RTC_ADDR) ? uint64_time[31:0] : uint64_time[63:32];
                 default: load_data = 'x;
             endcase
         end
