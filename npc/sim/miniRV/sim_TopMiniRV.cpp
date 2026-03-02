@@ -1,12 +1,25 @@
 #include "Vtop_TopMiniRV.h"
-#include "verilated.h"
+#include <macro.h>
+#include <utils.h>
 #include <capstone/capstone.h>
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #define DEFAULT_SIM_CYCLES SIM_CYCLES
 #define RING_BUFFER_SIZE 5
+#define SIM_DEBUG 0
+
+#define SIMLOG(format, ...) \
+    IFONE(SIM_DEBUG, printf(ANSI_FG_BLUE "[%s:%d %s] " ANSI_NONE format "\n",\
+         __FILE__, __LINE__, __func__, ##__VA_ARGS__));
+
+
+#define SIMERROR(format, ...) \
+    IFONE(SIM_DEBUG, printf(ANSI_FG_RED "[%s:%d %s] " ANSI_NONE format "\n",\
+         __FILE__, __LINE__, __func__, ##__VA_ARGS__));
+
 
 extern "C" void handle_sys_brk();
 extern "C" void handle_mem_access_error(uint32_t addr, uint32_t mapped_addr);
@@ -199,44 +212,53 @@ public:
     }
 
     void print_ring_buffer() const {
-        printf("-------------------------Recent %d instructions in %s-----------------\n", 
-        RING_BUFFER_SIZE, img_name.c_str());
-        int start = inst_nr % RING_BUFFER_SIZE;
-        for (int i = 0; i < RING_BUFFER_SIZE; i++) {
+        printf("-------------------------Recent %d instructions-----------------\n", RING_BUFFER_SIZE);
+        // 如果总指令数还没填满缓冲区，从 0 开始；否则从当前写入位置开始
+        int start = (inst_nr < RING_BUFFER_SIZE) ? 0 : (inst_nr % RING_BUFFER_SIZE);
+        int count = (inst_nr < RING_BUFFER_SIZE) ? inst_nr : RING_BUFFER_SIZE;
+        for (int i = 1; i < count+1; i++) {
             int idx = (start + i) % RING_BUFFER_SIZE;
-            printf("\033[34m  [%d] %s \033[0m\n", i, ring_buffer[idx].to_string().c_str());
+            printf(ANSI_FMT("[%d] %s\n", ANSI_FG_BLUE), inst_nr - count + i, ring_buffer[idx].to_string().c_str());
         }
     }
 
     void print_trap_state(int state) const {
         print_ring_buffer();
         if(state == 0) {
-            printf("\033[32m HIT A GOOD TRAP in %s! \033[0m\n", img_name.c_str());
+            printf(ANSI_FMT("HIT A GOOD TRAP in %s!\n", ANSI_FG_GREEN), img_name.c_str());
         } else {
-            printf("\033[31m HIT A BAD TRAP in %s due to %s! \033[0m\n", 
+            printf(ANSI_FMT("HIT A BAD TRAP in %s due to %s!\n", ANSI_FG_RED), 
             img_name.c_str(), error_cause_names[error_cause]);
         }
         print_statistics();
     }
 
     void print_mem_access_error(uint32_t addr, uint32_t mapped_addr) {
-        printf("Memory access error at address: 0x%08x (mapped to 0x%08x)\n", addr, mapped_addr);
+        SIMERROR("Memory access error at address: 0x%08x (mapped to 0x%08x)\n", addr, mapped_addr);
         error_cause = MEM_ACCESS_ERROR;
         print_trap_state(-1);
     }
 
     void print_sim_reach_max() {
-        printf("Simulation reached max cycles (%lu) in %s!\n", cycle_max, img_name.c_str());
+        SIMERROR("Simulation reached max cycles (%lu) in %s!\n", cycle_max, img_name.c_str());
         error_cause = OUT_OF_CYCLES;
         print_trap_state(-1);
     }
 
     void print_regs() const {
-        printf("Registers:\n");
+        printf("\n------------------------- Register Dump -------------------------\n");
         for (int i = 0; i < 32; i++) {
-            printf("%s: 0x%08x ", regs[i], top->gpr[i]);
-            if ((i + 1) % 8 == 0) printf("\n");
+            // %-4s  : 名称左对齐，占4位
+            // 0x%08x: 16进制补0对齐，占8位
+            // |     : 分隔符增加视觉可读性
+            printf("%-4s: 0x%08x  ", regs[i], top->gpr[i]);
+
+            // 每 8 个寄存器换一行（8列打印通常比4列更适合终端宽度）
+            if ((i + 1) % 8 == 0) {
+                printf("\n");
+            }
         }
+        printf("-----------------------------------------------------------------\n");
     }
 
     void print_statistics() const {
@@ -246,27 +268,29 @@ public:
             printf("Cycles executed:%lu Instructions executed:%lu CPI: %.2f\n", 
                 cycle_nr, inst_nr, (double)cycle_nr / inst_nr);
         }
+        printf("-----------------------------------------------------------------\n");
+        print_regs();
         exit(0);
     }
 
     uint64_t print_mmio_read(uint32_t addr) const {
         if (addr == RTC_ADDR) {
             uint64_t now = get_time_internal();
-            printf("CPP MMIO Read from RTC address: 0x%08x system time:%lu\n", addr, now);
+            SIMLOG("CPP MMIO Read from RTC address: 0x%08x system time:%lu\n", addr, now);
             return now;
         } else {
-            printf("MMIO Read from unknown address: 0x%08x\n", addr);
+            SIMERROR("MMIO Read from unknown address: 0x%08x\n", addr);
             return 0;
         }
     }
 
     void print_mmio_write(uint32_t addr, uint32_t data, uint8_t wmask = 0) const {
         if (addr == SERIAL_ADDR) {
-            printf("CPP MMIO Write to SERIAL address: 0x%08x, data: 0x%08x, wmask: 0x%02x\n",
+            SIMLOG("CPP MMIO Write to SERIAL address: 0x%08x, data: 0x%08x, wmask: 0x%02x\n",
              addr, data, wmask);
             putchar(data & wmask);
         } else {
-            printf("CPP MMIO Write to unknown address: 0x%08x\n", addr);
+            SIMERROR("CPP MMIO Write to unknown address: 0x%08x\n", addr);
         }
     }
 

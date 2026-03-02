@@ -38,7 +38,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
     logic misaligned_access;
     logic addr_out_of_range;
     assign byte_offset = mapped_addr[ALIGNED_WIDTH-1:0];
-    assign word_idx = mapped_addr[ADDR_WIDTH-1+ALIGNED_WIDTH:ALIGNED_WIDTH]; // 4字节对齐地址
+    assign word_idx = addr[ADDR_WIDTH-1+ALIGNED_WIDTH:ALIGNED_WIDTH]; // 4字节对齐地址
 
     always_comb begin : access_check
         misaligned_access = 1'b0;
@@ -72,7 +72,6 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
                 addr_out_of_range = 1'b1;
                 $warning("Address: %h out of range[%h, %h]  address mapped address: %h at time %t",
                  addr, PMEM_BASE, PMEM_BASE + PMEM_SIZE - 1, mapped_addr, $time);
-                //给我把导致地址越界的前5条指令和PC打印出来，我要看看是什么指令访问了越界地址
                 handle_mem_access_error(addr, mapped_addr);
             end
         end

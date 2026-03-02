@@ -60,6 +60,7 @@ CPP_TB := $(if $(wildcard $(SIM_DIR)/sim_$(MODULE).cpp),\
 # rules for NVBoard
 include $(NVBOARD_HOME)/scripts/nvboard.mk
 
+INC_PATH += $(NEMU_HOME)/include
 # rules for verilator
 INCFLAGS = $(addprefix -I, $(INC_PATH))
 
