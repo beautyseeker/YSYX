@@ -6,10 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <./generated/autoconf.h>
 
 #define DEFAULT_SIM_CYCLES SIM_CYCLES
 #define RING_BUFFER_SIZE 5
 #define SIM_DEBUG 0
+#define ALWAYS_RUN 0
 
 #define SIMLOG(format, ...) \
     IFONE(SIM_DEBUG, printf(ANSI_FG_BLUE "[%s:%d %s] " ANSI_NONE format "\n",\
@@ -18,6 +20,14 @@
 
 #define SIMERROR(format, ...) \
     IFONE(SIM_DEBUG, printf(ANSI_FG_RED "[%s:%d %s] " ANSI_NONE format "\n",\
+         __FILE__, __LINE__, __func__, ##__VA_ARGS__));
+
+#define IOLOG(format, ...) \
+    IFDEF(CONFIG_DTRACE, printf(ANSI_FG_BLUE "[%s:%d %s] " ANSI_NONE format "\n",\
+         __FILE__, __LINE__, __func__, ##__VA_ARGS__));
+
+#define MEMLOG(format, ...) \
+    IFDEF(CONFIG_MTRACE, printf(ANSI_FG_CYAN "[%s:%d %s] " ANSI_NONE format "\n",\
          __FILE__, __LINE__, __func__, ##__VA_ARGS__));
 
 
@@ -36,13 +46,22 @@ const char *regs[] = {
 
 typedef enum {
     SERIAL_ADDR = 0x10000000,
-    RTC_ADDR = 0x10000004
+    RTC_ADDR = 0x10000048
 } MMIO_ADDR;
 
 typedef enum {
     RUNNING,
-    STOP
+    STOP,
+    ABORT,
+    END
 } SimState;
+
+const char* sim_state_names[] = {
+    "RUNNING",
+    "STOP",
+    "ABORT",
+    "END"
+};
 
 typedef enum {
     OUT_OF_CYCLES = 0,
@@ -85,6 +104,7 @@ private:
     uint64_t cycle_max;
     uint64_t cycle_nr;
     uint64_t inst_nr;
+    uint64_t load_inst_num;
 
     ErrorCause error_cause;
     SimState sim_state;
@@ -174,18 +194,21 @@ public:
         reset();
     }
 
-    const char* get_img_path() const {
+    const char* get_img_path() {
         //获取img_path文件读入的指令数量，并打印出来
         if (!img_path.empty()) {
-            FILE *fp = fopen(img_path.c_str(), "rb");
+            FILE *fp = fopen(img_path.c_str(), "r");
             if (fp) {
-                fseek(fp, 0, SEEK_END);
-                long size = ftell(fp);
+                load_inst_num = 0;
+                char ch;
+                while ((ch = fgetc(fp)) != EOF) {
+                    if (ch == '\n') load_inst_num++;
+                }
                 fclose(fp);
-                printf("Load Image file from: %s, size: %ld bytes, instructions: %ld\n", 
-                img_path.c_str(), size, size / 4);
+                SIMLOG("instructions: %ld load from file: %s, \n", 
+                load_inst_num, img_path.c_str());
             } else {
-                printf("Failed to open image file: %s\n", img_path.c_str());
+                SIMERROR("Failed to open image file: %s\n", img_path.c_str());
             }
         }
         return img_path.empty() ? "" : img_path.c_str();
@@ -204,11 +227,20 @@ public:
     }
 
     void run() {
-        while (cycle_nr < cycle_max) {
-            clock_step();
-            // 这里可以添加一些周期级的监控逻辑，比如检查特定寄存器的值，或者监控特定的指令执行等
+        if(sim_state == RUNNING) {
+        #if ALWAYS_RUN
+            while (true) {
+                clock_step();
+            }
+        #else
+            while (cycle_nr < cycle_max) {
+                clock_step();
+                // 这里可以添加一些周期级的监控逻辑，比如检查特定寄存器的值，或者监控特定的指令执行等
+            }
+            print_sim_reach_max();
+        #endif
         }
-        print_sim_reach_max();
+
     }
 
     void reset() {
@@ -220,6 +252,7 @@ public:
         cycle_nr = 0;
         inst_nr = 0;
         boot_time = get_time_internal();
+        printf("-------------Starting simulation of %s...---------------\n", img_name.c_str());
     }
 
     void print_ring_buffer() const {
@@ -273,31 +306,34 @@ public:
     }
 
     void print_statistics() const {
-        printf("---------------------Simulation statistics----------------------\n");
+        print_regs();
+        printf("---------------------Simulation end statistics----------------------\n");
         if (cycle_nr > 0 && inst_nr > 0) {
             printf("%s Simulation time: %.2f ms\n", img_name.c_str(), get_uptime() / 1000.0);
             printf("Cycles executed:%lu Instructions executed:%lu CPI: %.2f\n", 
                 cycle_nr, inst_nr, (double)cycle_nr / inst_nr);
         }
         printf("-----------------------------------------------------------------\n");
-        print_regs();
         exit(0);
     }
 
+
     uint64_t print_mmio_read(uint32_t addr) const {
+        static uint64_t latched_time = 0;
         if (addr == RTC_ADDR) {
-            uint64_t now = get_time_internal();
-            SIMLOG("CPP MMIO Read from RTC address: 0x%08x system time:%lu\n", addr, now);
-            return now;
-        } else {
-            SIMERROR("MMIO Read from unknown address: 0x%08x\n", addr);
-            return 0;
+            latched_time = get_uptime(); // 读取启动时间
+            IOLOG("CPP MMIO Read from RTC address: 0x%08x, data: 0x%lx\n",
+             addr, latched_time);
+            return latched_time; 
+        } else if (addr == RTC_ADDR + 4) {
+            return latched_time; // 读取高位时返回上次采样的值，保证原子性
         }
+        return 0;
     }
 
     void print_mmio_write(uint32_t addr, uint32_t data, uint8_t wmask = 0) const {
         if (addr == SERIAL_ADDR) {
-            SIMLOG("CPP MMIO Write to SERIAL address: 0x%08x, data: 0x%08x, wmask: 0x%02x\n",
+            IOLOG("CPP MMIO Write to SERIAL address: 0x%08x, data: 0x%08x, wmask: 0x%02x\n",
              addr, data, wmask);
             putchar(data & wmask);
         } else {
