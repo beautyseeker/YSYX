@@ -10,17 +10,15 @@
 
 #define DEFAULT_SIM_CYCLES SIM_CYCLES
 #define RING_BUFFER_SIZE 5
-#define SIM_DEBUG 0
+#define SIM_INFO 1
 #define ALWAYS_RUN 0
 
 #define SIMLOG(format, ...) \
-    IFONE(SIM_DEBUG, printf(ANSI_FG_BLUE "[%s:%d %s] " ANSI_NONE format "\n",\
-         __FILE__, __LINE__, __func__, ##__VA_ARGS__));
+    IFONE(SIM_INFO, printf(ANSI_FG_BLUE format ANSI_NONE"\n",##__VA_ARGS__));
 
 
 #define SIMERROR(format, ...) \
-    IFONE(SIM_DEBUG, printf(ANSI_FG_RED "[%s:%d %s] " ANSI_NONE format "\n",\
-         __FILE__, __LINE__, __func__, ##__VA_ARGS__));
+    IFONE(SIM_INFO, printf(ANSI_FG_RED format ANSI_NONE "\n",##__VA_ARGS__));
 
 #define IOLOG(format, ...) \
     IFDEF(CONFIG_DTRACE, printf(ANSI_FG_BLUE "[%s:%d %s] " ANSI_NONE format "\n",\
@@ -28,6 +26,10 @@
 
 #define MEMLOG(format, ...) \
     IFDEF(CONFIG_MTRACE, printf(ANSI_FG_CYAN "[%s:%d %s] " ANSI_NONE format "\n",\
+         __FILE__, __LINE__, __func__, ##__VA_ARGS__));
+
+#define INSTLOG(format, ...) \
+    IFDEF(CONFIG_ITRACE, printf(ANSI_FG_GREEN "[%s:%d %s] " ANSI_NONE format "\n",\
          __FILE__, __LINE__, __func__, ##__VA_ARGS__));
 
 
@@ -145,14 +147,16 @@ private:
     }
 
     void set_asm() {
-        size_t count = cs_disasm(cap_handle, (uint8_t*)&(top->instruction), 
-        4, top->PC_current, 1, &insn);
-        if (count > 0) {
-            asm_str = std::string(insn[0].mnemonic) + " " + insn[0].op_str;
-            inst_nr++;
-            cs_free(insn, count);
-        } else {
-            asm_str = "<invalid>";
+        for(int i=0; i<RING_BUFFER_SIZE; i++) {
+            CPUPrintInfo cur_inst = ring_buffer[i];
+            size_t count = cs_disasm(cap_handle, (uint8_t*)&(cur_inst.instruction), 
+            4, cur_inst.PC_current, 1, &insn);
+            if (count > 0) {
+                asm_str = std::string(insn[0].mnemonic) + " " + insn[0].op_str;
+                cs_free(insn, count);
+            } else {
+                asm_str = "<invalid>";
+            }
         }
     }
 
@@ -205,10 +209,10 @@ public:
                     if (ch == '\n') load_inst_num++;
                 }
                 fclose(fp);
-                SIMLOG("instructions: %ld load from file: %s, \n", 
+                SIMLOG("instructions: %ld load from file: %s", 
                 load_inst_num, img_path.c_str());
             } else {
-                SIMERROR("Failed to open image file: %s\n", img_path.c_str());
+                SIMERROR("Failed to open image file: %s", img_path.c_str());
             }
         }
         return img_path.empty() ? "" : img_path.c_str();
@@ -216,9 +220,10 @@ public:
 
     // 封装时钟步进逻辑
     void clock_step() {
-        set_asm();
+        inst_nr += (top->rst_n == 0) ? 0 : 1; // 如果处于复位状态，不增加指令计数
         ring_buffer[inst_nr % RING_BUFFER_SIZE] = 
-        {.PC_current = top->PC_current, .instruction = top->instruction, .asm_str = asm_str};
+        {.PC_current = top->PC_current, .instruction = top->instruction, \
+        .asm_str = "<disassembly not implemented>"};
 
         top->clk = 1; top->eval();
         // 这里可以做一些时钟上升沿的同步逻辑
@@ -262,12 +267,13 @@ public:
         int count = (inst_nr < RING_BUFFER_SIZE) ? inst_nr : RING_BUFFER_SIZE;
         for (int i = 1; i < count+1; i++) {
             int idx = (start + i) % RING_BUFFER_SIZE;
-            printf(ANSI_FMT("[%ld] %s\n", ANSI_FG_BLUE), inst_nr - count + i, ring_buffer[idx].to_string().c_str());
+            IFDEF(SIM_DEBUG, printf(ANSI_FMT("[%ld] %s\n", ANSI_FG_BLUE),\
+             inst_nr - count + i, ring_buffer[idx].to_string().c_str()));
         }
     }
 
-    void print_trap_state(int state) const {
-        print_ring_buffer();
+    void print_trap_state(int state) {
+        IFDEF(CONFIG_ITRACE, do {set_asm(); print_ring_buffer();} while(0));
         if(state == 0) {
             printf(ANSI_FMT("HIT A GOOD TRAP in %s!\n", ANSI_FG_GREEN), img_name.c_str());
         } else {
@@ -307,13 +313,15 @@ public:
 
     void print_statistics() const {
         print_regs();
-        printf("---------------------Simulation end statistics----------------------\n");
+        SIMLOG("---------------------Simulation end statistics-------------------------");
         if (cycle_nr > 0 && inst_nr > 0) {
-            printf("%s Simulation time: %.2f ms\n", img_name.c_str(), get_uptime() / 1000.0);
-            printf("Cycles executed:%lu Instructions executed:%lu CPI: %.2f\n", 
+            uint64_t sim_time_us = get_uptime();
+            SIMLOG("%s Simulation time: %.3f ms MIPS: %.6f", 
+            img_name.c_str(), sim_time_us / 1000.0, float(inst_nr) / sim_time_us);
+            SIMLOG("Cycles executed:%lu Instructions executed:%lu CPI: %.2f", 
                 cycle_nr, inst_nr, (double)cycle_nr / inst_nr);
         }
-        printf("-----------------------------------------------------------------\n");
+        SIMLOG("-----------------------------------------------------------------------");
         exit(0);
     }
 

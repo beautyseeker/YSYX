@@ -36,7 +36,6 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
     logic [31:0] word_data;
     logic [ALIGNED_WIDTH-1:0] byte_offset;
     logic misaligned_access;
-    logic addr_out_of_mem;
 
     logic addr_in_mem;
     logic addr_in_IO;
@@ -47,7 +46,6 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
 
     always_comb begin : access_check
         misaligned_access = 1'b0;
-        addr_out_of_mem = 1'b0;
         if (mem_read_en || mem_write_en) begin
             assert(mem_size inside {MEM_BYTE, MEM_HALF, MEM_WORD})
             else $error("Invalid mem_size: %0d at time %t", mem_size, $time);
@@ -74,7 +72,6 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
                 end
             endcase
             if (!addr_in_mem && !addr_in_IO) begin
-                addr_out_of_mem = 1'b1;
                 $warning("Address: %h out of range[%h, %h]  address mapped address: %h at time %t",
                  addr, PMEM_BASE, PMEM_BASE + PMEM_SIZE - 1, mapped_addr, $time);
                 handle_mem_access_error(addr, mapped_addr);
@@ -86,7 +83,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
         mem_exception = EXC_NONE;
         if (misaligned_access) begin
             mem_exception = EXC_ACCESS_MISALIGNED;
-        end else if (addr_out_of_mem) begin
+        end else if (!addr_in_mem && !addr_in_IO) begin
             mem_exception = EXC_ACCESS_OUT_OF_RANGE;
         end else begin
             mem_exception = EXC_NONE;
@@ -97,7 +94,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
     //异步读取数据
     always_comb begin : mem_read
         if (mem_read_en) begin
-            if(!misaligned_access && !addr_out_of_mem) begin
+            if(!misaligned_access && addr_in_mem) begin
                 case (mem_size)
                     MEM_BYTE: begin
                         byte_data = MEM[word_idx][(byte_offset * 8) +: 8];
@@ -114,7 +111,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
                     default: load_data = 'x;
                 endcase
             end
-            if(addr_in_IO && (addr == RTC_ADDR || addr == RTC_ADDR + BYTES_PER_WORD)) begin
+            if(addr == RTC_ADDR || addr == RTC_ADDR + BYTES_PER_WORD) begin
                 uint64_time = mmio_read(addr);
                 // $display("SV MMIO Read from RTC:addr=0x%h data=0x%h", addr, uint64_time);
                 case (mem_size)
@@ -149,7 +146,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
             // 复位时清空内存（可选，根据需求决定是否需要）
         end 
         else if (mem_write_en) begin
-            if(!misaligned_access && !addr_out_of_mem) begin
+            if(!misaligned_access && addr_in_mem) begin
                 case (mem_size)
                     MEM_BYTE: begin
                         MEM[word_idx] <= (MEM[word_idx] & ~byte_mask)
