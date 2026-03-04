@@ -9,7 +9,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
 (
     input logic                  clk,
     input logic                  rst_n,
-    input logic [DATA_WIDTH-1:0] addr,
+    input logic [DATA_WIDTH-1:0] addr/* verilator public */,
     input logic [DATA_WIDTH-1:0] store_data,
     input mem_size_e             mem_size,
     input mem_sign_e             mem_sign,
@@ -22,13 +22,14 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
 
     localparam BYTES_PER_WORD = DATA_WIDTH / 8;
     localparam ALIGNED_WIDTH = $clog2(BYTES_PER_WORD);
-    localparam PMEM_SIZE = 1 << ADDR_WIDTH; // 1MB内存空间
+    localparam PMEM_SIZE/*verilator public*/ = 1 << ADDR_WIDTH;
+    localparam CONFIG_BASE/*verilator public*/ = PMEM_BASE;
     localparam SERIAL_ADDR = 32'h1000_0000; // 串口MMIO地址
     localparam RTC_ADDR = 32'h1000_0048; // 定时器MMIO地址
 
     logic [DATA_WIDTH-1:0] mapped_addr;
     assign mapped_addr = addr - PMEM_BASE; // 将访问地址映射到内存地址空间
-    logic [DATA_WIDTH-1:0] MEM [2**(ADDR_WIDTH)-1:0];
+    logic [DATA_WIDTH-1:0] MEM [PMEM_SIZE-1:0]/* verilator public */; 
 
     logic [ADDR_WIDTH-1:0] word_idx;
     logic [7:0] byte_data;
@@ -90,7 +91,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
         end
     end
 
-    logic [63:0] uint64_time;
+    logic [63:0] uptime;
     //异步读取数据
     always_comb begin : mem_read
         if (mem_read_en) begin
@@ -112,10 +113,10 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
                 endcase
             end
             if(addr == RTC_ADDR || addr == RTC_ADDR + BYTES_PER_WORD) begin
-                uint64_time = mmio_read(addr);
-                // $display("SV MMIO Read from RTC:addr=0x%h data=0x%h", addr, uint64_time);
+                uptime = mmio_read(addr);
+                // $display("SV MMIO Read from RTC:addr=0x%h data=0x%h", addr, uptime);
                 case (mem_size)
-                    MEM_WORD: load_data = (addr == RTC_ADDR) ? uint64_time[31:0] : uint64_time[63:32];
+                    MEM_WORD: load_data = (addr == RTC_ADDR) ? uptime[31:0] : uptime[63:32];
                     default: load_data = 'x;
                 endcase
             end

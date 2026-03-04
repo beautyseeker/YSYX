@@ -39,38 +39,39 @@ extern "C" const char* get_img_path();
 extern "C" void mmio_write(uint32_t addr, int data, uint8_t wmask);
 extern "C" uint64_t mmio_read(uint32_t addr);
 
-const char *regs[] = {
+const char *regs_name[] = {
   "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
   "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
   "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7",
   "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
 };
 
-typedef enum {
+enum MMIO_ADDR {
     SERIAL_ADDR = 0x10000000,
     RTC_ADDR = 0x10000048
-} MMIO_ADDR;
+};
 
-typedef enum {
+enum SimState{
     RUNNING,
     STOP,
     ABORT,
+    QUIT,
     END
-} SimState;
+};
 
 const char* sim_state_names[] = {
     "RUNNING",
     "STOP",
     "ABORT",
+    "QUIT",
     "END"
 };
 
-typedef enum {
+enum ErrorCause{
     OUT_OF_CYCLES = 0,
     MEM_ACCESS_ERROR,
     NORMAL_EXIT
-} ErrorCause;
-
+};
 const char* error_cause_names[] = {
     "OUT_OF_CYCLES",
     "MEM_ACCESS_ERROR",
@@ -122,7 +123,6 @@ private:
     // 代理原有的硬件访问，保持接口简洁
     uint32_t get_pc() const { return top->PC_current; }
     uint32_t get_inst() const { return top->instruction; }
-    uint32_t get_gpr(int idx) const { return top->gpr[idx]; }
     void parse_args(int argc, char **argv) {
         for (int i = 1; i < argc; ++i) {
             if (strncmp(argv[i], "IMG=", 4) == 0) {
@@ -219,44 +219,101 @@ public:
     }
 
     // 封装时钟步进逻辑
-    void clock_step() {
-        inst_nr += (top->rst_n == 0) ? 0 : 1; // 如果处于复位状态，不增加指令计数
-        ring_buffer[inst_nr % RING_BUFFER_SIZE] = 
-        {.PC_current = top->PC_current, .instruction = top->instruction, \
-        .asm_str = "<disassembly not implemented>"};
+    void clock_step(uint64_t n) {
+        for (uint64_t i = 0; i < n && sim_state == RUNNING; ++i) {
+            inst_nr += (top->rst_n == 0) ? 0 : 1; // 如果处于复位状态，不增加指令计数
 
-        top->clk = 1; top->eval();
-        // 这里可以做一些时钟上升沿的同步逻辑
-        top->clk = 0; top->eval();
-        cycle_nr++;
+            ring_buffer[inst_nr % RING_BUFFER_SIZE] = 
+            {.PC_current = top->PC_current, .instruction = top->instruction, \
+            .asm_str = "<disassembly not implemented>"};
+
+            top->clk = 1; top->eval();
+            // 这里可以做一些时钟上升沿的同步逻辑
+            top->clk = 0; top->eval();
+            cycle_nr++;
+        }
+        // 这里可以添加一些周期级的监控逻辑，比如检查特定寄存器的值，或者监控特定的指令执行等
+    }
+
+    uint32_t get_gpr(int idx) const { 
+        if (idx >= 0 && idx < 32) {
+            return top->gpr[idx];
+        } else {
+            SIMERROR("Invalid register index: %d\n", idx);
+            return -1; // 返回一个错误值
+        }
+    }
+
+    uint32_t get_gpr(const char* name) const {
+        for (int i = 0; i < 32; i++) {
+            if (strcmp(name, regs_name[i]) == 0) {
+                return top->gpr[i];
+            }
+        }
+        SIMERROR("Invalid register name: %s\n", name);
+        return -1; // 返回一个错误值
+    }
+
+    SimState get_sim_state() const {
+        return sim_state;
+    }
+
+    void set_sim_state(SimState new_state) {
+        sim_state = new_state;
+    }
+
+    uint32_t get_paddr_read(uint32_t addr, int len) {
+        // Assert(top != nullptr, "Top module is not initialized");
+        // Assert(top->rootp != nullptr && top->rootp->top_TopMiniRV != nullptr 
+        //     && top->rootp->top_TopMiniRV->lsu != nullptr 
+        //     && top->rootp->top_TopMiniRV->lsu->MEM != nullptr 
+        //     && top->rootp->top_TopMiniRV->lsu->PMEM_BASE != nullptr 
+        //     && top->rootp->top_TopMiniRV->lsu->PMEM_SIZE != nullptr, 
+        //     "Missing LSU or its memory components in the top module");
+        // Assert(len == 1 || len == 2 || len == 4, "misaligned memory access with length: %d\n", len);
+        // auto PMEM_BASE = top->rootp->top_TopMiniRV->lsu->CONFIG_BASE;
+        // auto PMEM_SIZE = top->rootp->top_TopMiniRV->lsu->PMEM_SIZE;
+        // if (addr < PMEM_BASE || addr >= PMEM_BASE + PMEM_SIZE) {
+        //     print_mem_access_error(addr, addr - PMEM_BASE);
+        //     SIMERROR("Address 0x%08x is out of bounds [0x%08x - 0x%08x]\n",
+        //     addr, PMEM_BASE, PMEM_BASE + PMEM_SIZE);
+        //     return -1;
+        // }
+        // auto MEM = top->rootp->top_TopMiniRV->lsu->MEM;
+        // switch(len) {
+        //     case 1: return MEM[addr-PMEM_BASE] & 0xFF;
+        //     case 2: return MEM[addr-PMEM_BASE] & 0xFFFF;
+        //     case 4: return MEM[addr-PMEM_BASE] & 0xFFFFFFFF;
+        //     default:
+        //         SIMERROR("Misaligned memory access at address:\
+        //         0x%08x with length: %d\n", addr, len);
+        //         return -1;
+        // }
+        // return 0xdeadbeef;
     }
 
     void run() {
         if(sim_state == RUNNING) {
         #if ALWAYS_RUN
             while (true) {
-                clock_step();
+                clock_step(1);
             }
         #else
-            while (cycle_nr < cycle_max) {
-                clock_step();
-                // 这里可以添加一些周期级的监控逻辑，比如检查特定寄存器的值，或者监控特定的指令执行等
-            }
-            print_sim_reach_max();
+            clock_step(-1);
         #endif
+        print_sim_reach_max();
         }
 
     }
 
     void reset() {
         top->rst_n = 0;
-        for (int i = 0; i < 5; ++i) {
-            clock_step();
-        }
+        clock_step(5);
         top->rst_n = 1;
         cycle_nr = 0;
         inst_nr = 0;
         boot_time = get_time_internal();
+        sim_state = RUNNING;
         printf("-------------Starting simulation of %s...---------------\n", img_name.c_str());
     }
 
@@ -276,9 +333,11 @@ public:
         IFDEF(CONFIG_ITRACE, do {set_asm(); print_ring_buffer();} while(0));
         if(state == 0) {
             printf(ANSI_FMT("HIT A GOOD TRAP in %s!\n", ANSI_FG_GREEN), img_name.c_str());
+            sim_state = END;
         } else {
             printf(ANSI_FMT("[%ld] %s \nHIT A BAD TRAP in %s due to %s!\n", ANSI_FG_RED), 
             inst_nr, log_str().c_str(), img_name.c_str(), error_cause_names[error_cause]);
+            sim_state = ABORT;
         }
         print_statistics();
     }
@@ -301,8 +360,7 @@ public:
             // %-4s  : 名称左对齐，占4位
             // 0x%08x: 16进制补0对齐，占8位
             // |     : 分隔符增加视觉可读性
-            printf("%-4s: 0x%08x  ", regs[i], top->gpr[i]);
-
+            printf("%-4s: 0x%08x  ", regs_name[i], top->gpr[i]);
             // 每 8 个寄存器换一行（8列打印通常比4列更适合终端宽度）
             if ((i + 1) % 8 == 0) {
                 printf("\n");
