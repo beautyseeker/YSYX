@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "svdpi.h"
 #include <./generated/autoconf.h>
 
 #define DEFAULT_SIM_CYCLES SIM_CYCLES
@@ -34,10 +36,20 @@
 
 
 extern "C" void handle_sys_brk();
-extern "C" void handle_mem_access_error(uint32_t addr, uint32_t mapped_addr);
+extern "C" void handle_mem_access_error(uint32_t pc, uint32_t mapped_addr);
 extern "C" const char* get_img_path();
-extern "C" void mmio_write(uint32_t addr, int data, uint8_t wmask);
-extern "C" uint64_t mmio_read(uint32_t addr);
+extern "C" void mmio_write(uint32_t pc, int data, uint8_t wmask);
+extern "C" uint64_t mmio_read(uint32_t pc);
+extern "C" {
+    uint8_t* raw_mem_ptr = nullptr;
+    uint32_t mem_size = 0;
+    uint32_t mem_base = 0;
+    void register_pmem_args(svOpenArrayHandle ptr, uint32_t size, uint32_t base) {
+        raw_mem_ptr = (uint8_t*)svGetArrayPtr(ptr);
+        mem_size = size;
+        mem_base = base;
+    }
+}
 
 const char *regs_name[] = {
   "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
@@ -72,6 +84,7 @@ enum ErrorCause{
     MEM_ACCESS_ERROR,
     NORMAL_EXIT
 };
+
 const char* error_cause_names[] = {
     "OUT_OF_CYCLES",
     "MEM_ACCESS_ERROR",
@@ -121,8 +134,6 @@ private:
     CPUPrintInfo ring_buffer[RING_BUFFER_SIZE]; // 环形缓冲区，保存最近5条指令的状态
 
     // 代理原有的硬件访问，保持接口简洁
-    uint32_t get_pc() const { return top->PC_current; }
-    uint32_t get_inst() const { return top->instruction; }
     void parse_args(int argc, char **argv) {
         for (int i = 1; i < argc; ++i) {
             if (strncmp(argv[i], "IMG=", 4) == 0) {
@@ -187,8 +198,8 @@ private:
 public:
     static Simlator* instance; // 单例实例 
     // 构造时传入已创建好的 top
-    Simlator(Vtop_TopMiniRV* model, int argc, char **argv) : 
-    top(model), error_cause(NORMAL_EXIT), sim_state(RUNNING) {
+    Simlator(Vtop_TopMiniRV* DUT, int argc, char **argv) : 
+    top(DUT), error_cause(NORMAL_EXIT), sim_state(RUNNING) {
         parse_args(argc, argv);
         img_path = get_img_path();
         img_name = get_filename();
@@ -197,6 +208,9 @@ public:
         instance = this;
         reset();
     }
+
+    uint32_t get_pc() const { return top->PC_current; }
+    uint32_t get_inst() const { return top->instruction; }
 
     const char* get_img_path() {
         //获取img_path文件读入的指令数量，并打印出来
@@ -240,18 +254,21 @@ public:
             return top->gpr[idx];
         } else {
             SIMERROR("Invalid register index: %d\n", idx);
-            return -1; // 返回一个错误值
+            return 0xdeadbeef;
         }
     }
 
-    uint32_t get_gpr(const char* name) const {
+    uint32_t isa_reg_str2val(const char* name) const {
         for (int i = 0; i < 32; i++) {
             if (strcmp(name, regs_name[i]) == 0) {
                 return top->gpr[i];
             }
         }
+        if(strcmp(name, "pc") == 0) {
+            return top->PC_current;
+        }
         SIMERROR("Invalid register name: %s\n", name);
-        return -1; // 返回一个错误值
+        return 0xdeadbeef;
     }
 
     SimState get_sim_state() const {
@@ -263,33 +280,26 @@ public:
     }
 
     uint32_t get_paddr_read(uint32_t addr, int len) {
-        // Assert(top != nullptr, "Top module is not initialized");
-        // Assert(top->rootp != nullptr && top->rootp->top_TopMiniRV != nullptr 
-        //     && top->rootp->top_TopMiniRV->lsu != nullptr 
-        //     && top->rootp->top_TopMiniRV->lsu->MEM != nullptr 
-        //     && top->rootp->top_TopMiniRV->lsu->PMEM_BASE != nullptr 
-        //     && top->rootp->top_TopMiniRV->lsu->PMEM_SIZE != nullptr, 
-        //     "Missing LSU or its memory components in the top module");
-        // Assert(len == 1 || len == 2 || len == 4, "misaligned memory access with length: %d\n", len);
-        // auto PMEM_BASE = top->rootp->top_TopMiniRV->lsu->CONFIG_BASE;
-        // auto PMEM_SIZE = top->rootp->top_TopMiniRV->lsu->PMEM_SIZE;
-        // if (addr < PMEM_BASE || addr >= PMEM_BASE + PMEM_SIZE) {
-        //     print_mem_access_error(addr, addr - PMEM_BASE);
-        //     SIMERROR("Address 0x%08x is out of bounds [0x%08x - 0x%08x]\n",
-        //     addr, PMEM_BASE, PMEM_BASE + PMEM_SIZE);
-        //     return -1;
-        // }
-        // auto MEM = top->rootp->top_TopMiniRV->lsu->MEM;
-        // switch(len) {
-        //     case 1: return MEM[addr-PMEM_BASE] & 0xFF;
-        //     case 2: return MEM[addr-PMEM_BASE] & 0xFFFF;
-        //     case 4: return MEM[addr-PMEM_BASE] & 0xFFFFFFFF;
-        //     default:
-        //         SIMERROR("Misaligned memory access at address:\
-        //         0x%08x with length: %d\n", addr, len);
-        //         return -1;
-        // }
-        // return 0xdeadbeef;
+        // Assert(raw_mem_ptr != nullptr && mem_base != nullptr \
+        // && mem_size > 0,"Top SV module is not initialized");
+        Assert(len == 1 || len == 2 || len == 4, \
+        "misaligned memory access with length: %d\n", len);
+        if (addr < mem_base || addr >= mem_base + mem_size) {
+            print_mem_access_error(addr, addr - mem_base);
+            SIMERROR("Address 0x%08x is out of bounds [0x%08x - 0x%08x]\n",
+            addr, mem_base, mem_base + mem_size);
+            return 0xdeadbeef;
+        }
+        switch(len) {
+            case 1: return *(uint8_t*)&raw_mem_ptr[addr-mem_base];
+            case 2: return *(uint16_t*)&raw_mem_ptr[addr-mem_base];
+            case 4: return *(uint32_t*)&raw_mem_ptr[addr-mem_base];
+            default:
+                SIMERROR("Misaligned memory access at address:\
+                0x%08x with length: %d\n", addr, len);
+                return 0xdeadbeef;
+        }
+        return 0xdeadbeef;
     }
 
     void run() {
@@ -434,11 +444,26 @@ extern "C" uint64_t mmio_read(uint32_t addr) {
 }
 
 Simlator* Simlator::instance = nullptr;
+int random_addr[] = {1, 2, 4};
+SimState sim_state[] = {RUNNING, STOP};
 
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
     Vtop_TopMiniRV* top = new Vtop_TopMiniRV;
     Simlator cpu_sim(top, argc, argv);
-    cpu_sim.run();
+    // cpu_sim.run();
+    auto pc = 0x80000000;
+    while(pc < 0x80000000 + 50 * 4) {
+        uint32_t data = cpu_sim.get_paddr_read(pc, 4);
+        auto reg_data = cpu_sim.get_gpr(10);
+        auto sim_sts = cpu_sim.get_sim_state();
+        cpu_sim.set_sim_state(sim_state[rand() % 2]);
+        cpu_sim.clock_step(random_addr[rand() % 3]);
+        pc = cpu_sim.get_pc();
+        auto inst = cpu_sim.get_inst();
+        printf("Read data: 0x%08x from address: 0x%08x,\
+        reg a0: 0x%08x, sim state: %8s, inst: 0x%08x\n",data, pc, \
+        reg_data, sim_state_names[sim_sts], inst);
+    }
     return -1;
 }
