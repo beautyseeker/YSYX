@@ -32,6 +32,8 @@ static void restart() {
 
   /* The zero register is always 0. */
   cpu.gpr[0] = 0;
+
+  cpu.csr.mstatus = MUXDEF(CONFIG_RV64, 0x00001800, 0x1800); // MPP = 0 (user mode)
 }
 
 void init_isa() {

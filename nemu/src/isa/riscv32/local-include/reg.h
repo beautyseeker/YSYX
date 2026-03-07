@@ -25,6 +25,44 @@ static inline int check_reg_idx(int idx) {
 
 #define gpr(idx) (cpu.gpr[check_reg_idx(idx)])
 
+#define csrrs(imm, v, old_ptr) do { \
+  word_t *p = NULL; \
+  switch (imm) { \
+    case 0x300: p = &(cpu.csr.mstatus); break; \
+    case 0x305: p = &(cpu.csr.mtvec);   break; \
+    case 0x341: p = &(cpu.csr.mepc);    break; \
+    case 0x342: p = &(cpu.csr.mcause);  break; \
+    default: panic("unsupported csr addr = 0x%03x", imm); \
+  } \
+  *old_ptr = *p; \
+  *p |= v; \
+} while (0)
+
+#define csrrw(imm, v, old_ptr) do { \
+  word_t *p = NULL; \
+  switch (imm) { \
+    case 0x300: p = &(cpu.csr.mstatus); break; \
+    case 0x305: p = &(cpu.csr.mtvec);   break; \
+    case 0x341: p = &(cpu.csr.mepc);    break; \
+    case 0x342: p = &(cpu.csr.mcause);  break; \
+    default: panic("unsupported csr addr = 0x%03x", imm); \
+  } \
+  *old_ptr = *p; \
+  *p = v; \
+} while (0)
+
+#define csr_read(imm) ({ \
+  word_t *p = NULL; \
+  switch (imm) { \
+    case 0x300: p = &(cpu.csr.mstatus); break; \
+    case 0x305: p = &(cpu.csr.mtvec);   break; \
+    case 0x341: p = &(cpu.csr.mepc);    break; \
+    case 0x342: p = &(cpu.csr.mcause);  break; \
+    default: panic("unsupported csr addr = 0x%03x", imm); \
+  } \
+  *p; \
+})
+
 static inline const char* reg_name(int idx) {
   extern const char* regs[];
   return regs[check_reg_idx(idx)];
