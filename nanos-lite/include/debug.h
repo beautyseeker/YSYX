@@ -25,6 +25,9 @@
     } \
   } while (0)
 
+
+#define HAS_CTE
+
 #define TODO() panic("please implement me")
 
 #endif

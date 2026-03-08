@@ -24,6 +24,10 @@
     _Log(ANSI_FMT("[%s:%d %s] " format, ANSI_FG_BLUE) "\n", \
         __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
+#define Trace(type, color,format, ...) \
+    _Log(ANSI_FMT("[%s] " format, color) "\n", \
+         type, ## __VA_ARGS__)
+
 #define Assert(cond, format, ...) \
   do { \
     if (!(cond)) { \

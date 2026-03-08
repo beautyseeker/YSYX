@@ -57,14 +57,14 @@ word_t paddr_read(paddr_t addr, int len) {
   if (likely(in_pmem(addr))) {
     word_t ret = pmem_read(addr, len);
     IFDEF(CONFIG_MTRACE, if (CONFIG_MTRACE_COND(addr))
-    { printf(ANSI_FG_BLUE"mtrace_read addr: ["FMT_PADDR"] => "FMT_WORD"\n"ANSI_NONE, addr, ret); });
+    { Trace("Memory", ANSI_FG_CYAN, "mtrace_read addr: ["FMT_PADDR"] => "FMT_WORD, addr, ret); });
     return ret;
   }
   IFDEF(CONFIG_DEVICE, {
     word_t ret = mmio_read(addr, len);
     IFDEF(CONFIG_DTRACE, if (CONFIG_DTRACE_COND(addr)) {
       IOMap* map = fetch_mmio_map(addr);
-      printf(ANSI_FG_BLUE"\ndtrace_device:%s mmio_read addr: ["FMT_PADDR"] => "FMT_WORD"\n"ANSI_NONE, map->name, addr, ret);
+      Trace("Device", ANSI_FG_MAGENTA, "device:%s mmio_read addr: ["FMT_PADDR"] => "FMT_WORD, map->name, addr, ret);
     });
     return ret;
   });
@@ -75,13 +75,13 @@ word_t paddr_read(paddr_t addr, int len) {
 void paddr_write(paddr_t addr, int len, word_t data) {
   if (likely(in_pmem(addr))) { 
     IFDEF(CONFIG_MTRACE, if (CONFIG_MTRACE_COND(addr))
-    { printf(ANSI_FG_BLUE"mtrace_write addr: ["FMT_PADDR"] <= "FMT_WORD"\n"ANSI_NONE, addr, data); });
+    { Trace("Memory", ANSI_FG_CYAN, "mtrace_write addr: ["FMT_PADDR"] <= "FMT_WORD, addr, data); });
     pmem_write(addr, len, data);
     return; }
   IFDEF(CONFIG_DEVICE, {
     IFDEF(CONFIG_DTRACE, if (CONFIG_DTRACE_COND(addr)) {
       IOMap* map = fetch_mmio_map(addr);
-      printf(ANSI_FG_BLUE"\ndtrace_device:%s mmio_write addr: ["FMT_PADDR"] <= "FMT_WORD"\n"ANSI_NONE, map->name, addr, data);
+      Trace("Device", ANSI_FG_MAGENTA, "device:%s mmio_write addr: ["FMT_PADDR"] <= "FMT_WORD, map->name, addr, data);
     });
     mmio_write(addr, len, data);
     return;

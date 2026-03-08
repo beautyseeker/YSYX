@@ -44,7 +44,8 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
-  IFDEF(CONFIG_FTRACE, if(symbol_buf[0] != '\0') {printf("%sftrace pc:0x%08x: %s\n", ANSI_FG_YELLOW, _this->pc, symbol_buf);});
+  IFDEF(CONFIG_FTRACE, if(symbol_buf[0] != '\0') \
+  { Trace("Function", ANSI_FG_YELLOW, "ftrace pc:0x%08x: %s", _this->pc, symbol_buf); });
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
 #ifdef CONFIG_WATCHPOINT
   wp_scan_wp();
@@ -147,7 +148,7 @@ static void print_iring() {
   printf(ANSI_FMT("--------------Instruction Ring Buffer (last %d instructions)-------------:\n", 
   ANSI_FG_CYAN), n);
   for (i = 0; i < n; i++) {
-    printf(ANSI_FMT("%s\n", ANSI_FG_YELLOW), iring_buf[(start + i) % n]);
+    Trace("Iring", ANSI_FG_YELLOW, "%s", iring_buf[(start + i) % n]);
   }
   printf(ANSI_FMT("--------------End of Instruction Ring Buffer-------------\n", ANSI_FG_CYAN));
 }

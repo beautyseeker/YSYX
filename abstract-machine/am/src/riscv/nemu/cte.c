@@ -3,6 +3,14 @@
 #include <klib.h>
 
 static Context* (*user_handler)(Event, Context*) = NULL;
+static uint8_t irq_depth = 0;
+
+static void print_etrace(Context *c, Event ev)__attribute__((unused));
+
+static void print_etrace(Context *c, Event ev) {
+  printf("-mcause: 0x%08x, -a0: 0x%08x, -irq_depth: %d\n,\
+  -mepc: 0x%08x sp: 0x%08x\n", c->mcause, c->GPR1, irq_depth, c->mepc, c->GPR_SP);
+}
 
 Context* __am_irq_handle(Context *c) {
   if (user_handler) {
