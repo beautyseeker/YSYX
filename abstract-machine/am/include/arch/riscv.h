@@ -29,5 +29,10 @@ struct Context {
 #define GPR_TP gpr[4]
 #define GPR_FP gpr[8]
 #define GPR_A0 gpr[10]
+#define GPR_A1 gpr[11]
+#define GPR_A2 gpr[12]
+#define GPR_A3 gpr[13]
+#define GPR_A4 gpr[14]
+
 
 #endif

@@ -21,8 +21,6 @@
 #define R(i) gpr(i)
 #define Mr vaddr_read
 #define Mw vaddr_write
-#define CSRRS csrrs
-#define CSRRW csrrw
 
 enum {
   TYPE_I, TYPE_U, TYPE_S,
@@ -122,7 +120,7 @@ static int decode_exec(Decode *s) {
   //csrrs
   INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrr  , I, word_t old; CSRRS(imm, src1, &old); R(rd) = old;);
   //mret
-  INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , N, s->dnpc = csr_read(0x341););
+  INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , N, s->dnpc = CSR_MEPC;);
 
   INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, src2));
   INSTPAT("??????? ????? ????? 010 ????? 01000 11", sw     , S, Mw(src1 + imm, 4, src2));
