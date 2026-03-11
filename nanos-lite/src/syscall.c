@@ -1,6 +1,40 @@
 #include <common.h>
 #include "syscall.h"
 
+#define CONFIG_STRACE
+
+#ifdef CONFIG_STRACE
+static void print_strace(uintptr_t *a, uintptr_t ret) {
+  static char str[128];
+  int id = a[0];
+  
+  // 针对不同系统调用定制参数说明
+  switch (id) {
+    case SYS_write:
+      snprintf(str, sizeof(str), "%s(fd = %d, buf = 0x%x, count = %d) = %d", 
+               syscall_name[id], a[1], a[2], a[3], ret);
+      break;
+    case SYS_brk:
+      // a1 是新的堆顶地址，ret 通常是 0 (或旧地址，取决于你的实现)
+      snprintf(str, sizeof(str), "%s(increment = %d) = 0x%x", 
+               syscall_name[id], a[1], ret);
+      break;
+    case SYS_exit:
+      snprintf(str, sizeof(str), "%s(status = %d)", syscall_name[id], a[1]);
+      break;
+    case SYS_yield:
+      snprintf(str, sizeof(str), "%s() = %d", syscall_name[id], ret);
+      break;
+    default:
+      snprintf(str, sizeof(str), "%s(0x%x, 0x%x, 0x%x) = %d", 
+               syscall_name[id], a[1], a[2], a[3], ret);
+      break;
+  }
+
+  printf("\33[1;35m[SystemCallTrace]: %s\33[0m\n", str);
+}
+#endif
+
 void do_syscall(Context *c) {
   uintptr_t a[4];
   a[0] = c->GPR1;   // 系统调用号寄存器，决定系统调用类型，通常是a7/a5寄存器
@@ -10,7 +44,58 @@ void do_syscall(Context *c) {
 
   switch (a[0]) {
     case SYS_yield: c->GPR_A0 = 0; break;
-    case SYS_exit: printf("Program exited with code %d\n", a[1]); halt(a[1]);
+    case SYS_exit: _exit(a[1]); break;
+    case SYS_write: c->GPR_A0 = (uintptr_t)_write(a[1], (void *)a[2], a[3]); break;
+    case SYS_brk: c->GPR_A0 = (uintptr_t)_sbrk(a[1]); break;
     default: panic("Unhandled syscall ID = %d", a[0]);
+  }
+
+#ifdef CONFIG_STRACE
+  print_strace(a, c->GPR_A0);
+#endif
+}
+
+void _exit(int status) {
+  printf("Program exited with code %d\n", status);
+  halt(status);
+}
+
+int _write(int fd, const void *buf, size_t count) {
+  if(fd == 1 || fd == 2) {
+    size_t i;
+    for (i = 0; i < count; i++) {
+      putch(((const char *)buf)[i]);
+    }
+    return count;
+  } 
+  else {
+    panic("Unsupported file descriptor: %d", fd);
+    return -1;
+  }
+}
+
+extern char end;
+void *ptr_break = &end;
+// 将堆起始地址偶数对齐
+void *heap_start = (void *) &end; 
+// 设置一个合理的上限，防止越界
+void *heap_limit = (void *)0x88000000;
+
+int brk(void *addr) {
+  if ((uintptr_t) addr >= (uintptr_t) heap_start \
+  && (uintptr_t) addr <= (uintptr_t) heap_limit) {
+    ptr_break = addr;
+    return 0;
+  } 
+  return -1;
+}
+
+void *_sbrk(intptr_t increment) {
+  void *old_break = ptr_break;
+  if (brk((void *)((uintptr_t)ptr_break + increment)) == -1) {
+    return (void *)-1; // brk失败，返回-1
+  }
+  else {
+    return (void *)old_break; // 返回原来堆地址
   }
 }
