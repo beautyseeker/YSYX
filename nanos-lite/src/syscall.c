@@ -1,13 +1,23 @@
 #include <common.h>
 #include "syscall.h"
 #include <fs.h>
-// #include <am.h>
+#include <am.h>
+
+struct timeval {
+  long    tv_sec;         /* 秒 */
+  long    tv_usec;        /* 微秒 */
+};
+
+struct timezone {
+  int tz_minuteswest;     /* 格林威治以西的分钟差 */
+  int tz_dsttime;         /* 夏令时修正类型 */
+};
 
 void do_syscall(Context *c);
-
 int brk(void *addr);
 void *_sbrk(intptr_t increment);
 void _exit(int status);
+int _gettimeofday(struct timeval *tv, struct timezone *tz);
 
 #define CONFIG_STRACE
 
@@ -73,6 +83,10 @@ static void print_strace(uintptr_t *a, uintptr_t ret) {
       snprintf(str, sizeof(str), "%s(fd = %d) = %d", 
                syscall_name[id], a[1], ret);
       break;
+    case SYS_gettimeofday:
+      // snprintf(str, sizeof(str), "%s(tv_ptr = 0x%x, tz_ptr = 0x%x) = %d", 
+      //          syscall_name[id], a[1], a[2], ret);
+      return;
     default:
       snprintf(str, sizeof(str), "%s(0x%x, 0x%x, 0x%x) = %d", 
                syscall_name[id], a[1], a[2], a[3], ret);
@@ -99,6 +113,8 @@ void do_syscall(Context *c) {
     case SYS_lseek: c->GPR_A0 = (uintptr_t)fs_lseek(a[1], a[2], a[3]); break;
     case SYS_close: c->GPR_A0 = (uintptr_t)fs_close(a[1]); break;
     case SYS_brk: c->GPR_A0 = (uintptr_t)_sbrk(a[1]); break;
+    case SYS_gettimeofday: c->GPR_A0 = (uintptr_t)_gettimeofday\
+    ((struct timeval *)a[1], (struct timezone *)a[2]); break;
 
     default: panic("Unhandled syscall ID = %d", a[0]);
   }
@@ -137,4 +153,15 @@ void *_sbrk(intptr_t increment) {
   else {
     return (void *)old_break; // 返回原来堆地址
   }
+}
+
+int _gettimeofday(struct timeval *tv, struct timezone *tz) {
+  // 这里暂时不支持时区信息，直接返回0
+  if (tv) {
+    uint64_t uptime_us = io_read(AM_TIMER_UPTIME).us;
+    tv->tv_sec = uptime_us / 1000000; // 秒
+    tv->tv_usec = uptime_us % 1000000; // 微秒
+    return 0;
+  }
+  return -1;
 }
