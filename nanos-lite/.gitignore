@@ -2,7 +2,7 @@
 *
 !*/
 !Makefile*
-!*.[cSh]
+!**/*.[cSh]
 !.gitignore
 !README.md
 !resources/logo.txt

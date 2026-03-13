@@ -1,9 +1,41 @@
 #include <common.h>
 #include "syscall.h"
+#include <fs.h>
+// #include <am.h>
+
+void do_syscall(Context *c);
+
+int brk(void *addr);
+void *_sbrk(intptr_t increment);
+void _exit(int status);
 
 #define CONFIG_STRACE
 
 #ifdef CONFIG_STRACE
+
+static const char *syscall_name[] = {
+  "SYS_exit",
+  "SYS_yield",
+  "SYS_open",
+  "SYS_read",
+  "SYS_write",
+  "SYS_kill",
+  "SYS_getpid",
+  "SYS_close",
+  "SYS_lseek",
+  "SYS_brk",
+  "SYS_fstat",
+  "SYS_time",
+  "SYS_signal",
+  "SYS_execve",
+  "SYS_fork",
+  "SYS_link",
+  "SYS_unlink",
+  "SYS_wait",
+  "SYS_times",
+  "SYS_gettimeofday"
+};
+
 static void print_strace(uintptr_t *a, uintptr_t ret) {
   static char str[128];
   int id = a[0];
@@ -25,6 +57,22 @@ static void print_strace(uintptr_t *a, uintptr_t ret) {
     case SYS_yield:
       snprintf(str, sizeof(str), "%s() = %d", syscall_name[id], ret);
       break;
+    case SYS_lseek:
+      snprintf(str, sizeof(str), "%s(fd = %d, offset = %d, whence = %d) = %d", 
+               syscall_name[id], a[1], a[2], a[3], ret);
+      break;
+    case SYS_open:
+      snprintf(str, sizeof(str), "%s(pathname = 0x%x, flags = %d, mode = %d) = %d", 
+               syscall_name[id], a[1], a[2], a[3], ret);
+      break;
+    case SYS_read:
+      snprintf(str, sizeof(str), "%s(fd = %d, buf = 0x%x, count = %d) = %d", 
+               syscall_name[id], a[1], a[2], a[3], ret);
+      break;
+    case SYS_close:
+      snprintf(str, sizeof(str), "%s(fd = %d) = %d", 
+               syscall_name[id], a[1], ret);
+      break;
     default:
       snprintf(str, sizeof(str), "%s(0x%x, 0x%x, 0x%x) = %d", 
                syscall_name[id], a[1], a[2], a[3], ret);
@@ -45,8 +93,13 @@ void do_syscall(Context *c) {
   switch (a[0]) {
     case SYS_yield: c->GPR_A0 = 0; break;
     case SYS_exit: _exit(a[1]); break;
-    case SYS_write: c->GPR_A0 = (uintptr_t)_write(a[1], (void *)a[2], a[3]); break;
+    case SYS_open: c->GPR_A0 = (uintptr_t)fs_open((const char *)a[1], a[2], a[3]); break;
+    case SYS_read: c->GPR_A0 = (uintptr_t)fs_read(a[1], (void *)a[2], a[3]); break;
+    case SYS_write: c->GPR_A0 = (uintptr_t)fs_write(a[1], (void *)a[2], a[3]); break;
+    case SYS_lseek: c->GPR_A0 = (uintptr_t)fs_lseek(a[1], a[2], a[3]); break;
+    case SYS_close: c->GPR_A0 = (uintptr_t)fs_close(a[1]); break;
     case SYS_brk: c->GPR_A0 = (uintptr_t)_sbrk(a[1]); break;
+
     default: panic("Unhandled syscall ID = %d", a[0]);
   }
 
@@ -58,20 +111,6 @@ void do_syscall(Context *c) {
 void _exit(int status) {
   printf("Program exited with code %d\n", status);
   halt(status);
-}
-
-int _write(int fd, const void *buf, size_t count) {
-  if(fd == 1 || fd == 2) {
-    size_t i;
-    for (i = 0; i < count; i++) {
-      putch(((const char *)buf)[i]);
-    }
-    return count;
-  } 
-  else {
-    panic("Unsupported file descriptor: %d", fd);
-    return -1;
-  }
 }
 
 extern char end;

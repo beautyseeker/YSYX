@@ -1,5 +1,6 @@
 #include <proc.h>
 #include <elf.h>
+#include <fs.h>
 
 #ifdef __LP64__
 # define Elf_Ehdr Elf64_Ehdr
@@ -25,23 +26,26 @@ extern size_t ramdisk_read(void *buf, size_t offset, size_t len);
 extern size_t ramdisk_write(const void *buf, size_t offset, size_t len);
 
 uintptr_t loader(PCB *pcb, const char *filename) {
+  int fd = fs_open(filename, 0, 0);
+  assert(fd >= 0);
   Elf_Ehdr elf;
-  ramdisk_read(&elf, 0, sizeof(elf));
-  assert(elf.e_ident[0] == 0x7f && elf.e_ident[1] == 'E'\
-     && elf.e_ident[2] == 'L' && elf.e_ident[3] == 'F');
+  fs_read(fd, &elf, sizeof(Elf_Ehdr));
+  assert(*(uint32_t *)elf.e_ident == 0x464c457f); // "\x7FELF" in little endian
   assert(elf.e_machine == EXPECT_TYPE_ISA);
   Elf_Phdr ph;
   for (int i = 0; i < elf.e_phnum; i ++) {
-    ramdisk_read(&ph, elf.e_phoff + i * elf.e_phentsize, sizeof(ph));
+    fs_lseek(fd, elf.e_phoff + i * elf.e_phentsize, SEEK_SET);
+    fs_read(fd, &ph, sizeof(Elf_Phdr));
     if (ph.p_type == PT_LOAD) {
       // 使用 uintptr_t 作为中间层
-      uintptr_t vaddr = (uintptr_t)ph.p_vaddr;
-      ramdisk_read((void *)vaddr, ph.p_offset, ph.p_filesz);
+      fs_lseek(fd, ph.p_offset, SEEK_SET);
+      fs_read(fd, (void *)ph.p_vaddr, ph.p_filesz);
       if (ph.p_memsz > ph.p_filesz) {
-        memset((void *)(vaddr + ph.p_filesz), 0, ph.p_memsz - ph.p_filesz);
+        memset((void *)(ph.p_vaddr + ph.p_filesz), 0, ph.p_memsz - ph.p_filesz);
       }
     }
   }
+  fs_close(fd);
   return elf.e_entry;
 }
 

@@ -172,6 +172,37 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
           written++;
         }
       }
+      else if(*f == 'p') {
+        void *ptr = va_arg(ap, void *);
+        uintptr_t num = (uintptr_t)ptr;
+        char buf[2 * sizeof(void *) + 1]; // enough to hold pointer in hex and '\0'
+        int i = 0;
+        do{
+          uint8_t digit = num % 16;
+          if (digit < 10) {
+            buf[i++] = (char)('0' + digit);
+          }
+          else {
+            buf[i++] = (char)('a' + digit - 10);
+          }
+          num /= 16;
+        } while (num > 0);
+        
+        if (written < n - 1) {
+          *p++ = '0';
+          written++;
+        }
+        if (written < n - 1) {
+          *p++ = 'x';
+          written++;
+        }
+        for (int j = i - 1; j >= 0; j--) {
+          if (written < n - 1) {
+            *p++ = buf[j];
+            written++;
+          }
+        }
+      }
       else if (*f == '%') {
         if (written < n - 1) {
           *p++ = '%';
