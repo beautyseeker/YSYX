@@ -1,32 +1,26 @@
-#include <sys/time.h>
 #include <assert.h>
 #include <stdio.h>
 
 int main() {
-  struct timeval start, now;
-  
-  // 1. 获取初始基准时间
-  if (gettimeofday(&start, NULL) != 0) {
-    assert(0 && "gettimeofday failed");
+  int init_ret = NDL_Init(0);
+  uint32_t last_time_ms = NDL_GetTicks();
+  assert(init_ret == 0 && last_time_ms != -1 && "NDLInit failed");
+
+  while(1) {
+    if(NDL_GetTicks() - last_time_ms < 500) continue;
+    printf("Waiting for 0.5 second to pass... Current Time: %d ms\n"\
+    , NDL_GetTicks());
+    last_time_ms = NDL_GetTicks();
   }
 
-  uint64_t last_sec = start.tv_sec;
-
-  while (1) {
-    // 2. 持续获取当前时间
-    gettimeofday(&now, NULL);
-
-    // 3. 检查秒数是否发生变化
-    // 或者计算微秒差值：if ((now.tv_sec - start.tv_sec) >= 1)
-    if (now.tv_sec > last_sec) {
-      printf("One second passed! Current Time: %ld s\n", (long)now.tv_sec);
-      
-      // 4. 更新基准，准备下一次计时
-      last_sec = now.tv_sec; 
-    }
-
-    // 可以在这里加一个非常小的 yield 或延迟，避免 100% 占用 CPU
-  }
+//   while (1) {
+//     int ret = gettimeofday(&now, NULL);
+//     assert(ret == 0 && "gettimeofday failed");
+//     if (now.tv_usec == 500000) {
+//       printf("One second passed! Current Time: %ld s\n", (long)now.tv_sec);
+//     }
+//     // 可以在这里加一个非常小的 yield 或延迟，避免 100% 占用 CPU
+//   }
 
   return 0;
 }

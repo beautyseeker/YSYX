@@ -178,7 +178,10 @@ $(CLEAN_ALL):
 
 ### Build fsimg and ramdisk for Nanos-lite
 APPS =
-TESTS = dummy hello file-test timer-test
+ALL_TEST_DIRS := $(shell ls $(NAVY_HOME)/tests/)
+TESTS := $(shell for dir in $(NAVY_HOME)/tests/$(ALL_TEST_DIRS); do \
+			if [ -d $(NAVY_HOME)/tests/$$dir/build ]; then basename $$dir; fi; \
+			done)
 
 fsimg: $(addprefix apps/, $(APPS)) $(addprefix tests/, $(TESTS))
 	-for t in $^; do $(MAKE) -s -C $(NAVY_HOME)/$$t install; done

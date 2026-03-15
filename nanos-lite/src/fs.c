@@ -3,6 +3,11 @@
 
 extern size_t serial_write(const void *buf, size_t offset, size_t len);
 extern size_t events_read(void *buf, size_t offset, size_t len);
+extern size_t dispinfo_read(void *buf, size_t offset, size_t len);
+extern size_t fb_write(const void *buf, size_t offset, size_t len);
+extern size_t fb_ctl_write(const void *buf, size_t offset, size_t len);
+extern void init_device();
+extern int fb_size, window_w, window_h;
 
 size_t invalid_read(void *buf, size_t offset, size_t len) {
   panic("should not reach here");
@@ -19,11 +24,22 @@ static Finfo file_table[] __attribute__((used)) = {
   [FD_STDIN]  = {"stdin", 0, 0, 0, invalid_read, invalid_write},
   [FD_STDOUT] = {"stdout", 0, 0, 0, invalid_read, serial_write},
   [FD_STDERR] = {"stderr", 0, 0, 0, invalid_read, serial_write},
+  [FD_EVT]    = {"/dev/events", 0, 0, 0, events_read, invalid_write},
+  [FD_FBCTL]  = {"/dev/fbctl", 0, 0, 0, invalid_read, fb_ctl_write},
+  [FD_FBDEV]  = {"/dev/fb", 0, 0, 0, invalid_read, fb_write},
+  [FD_DISPINFO] = {"/proc/dispinfo", 0, 0, 0, dispinfo_read, invalid_write},
 #include "files.h"
 };
+#define NR_FILES (sizeof(file_table) / sizeof(file_table[0]))
 
 void init_fs() {
   // TODO: initialize the size of /dev/fb
+  window_h = io_read(AM_GPU_CONFIG).height;
+  window_w = io_read(AM_GPU_CONFIG).width;
+  fb_size = io_read(AM_GPU_CONFIG).vmemsz;
+  printf("init_fb: window_w = %d, window_h = %d, fb_size = %d\n", window_w, window_h, fb_size);
+  assert(fb_size > 0 && "fb_size not initialized");
+  file_table[FD_FBDEV].size = fb_size;
 }
 
 Finfo* get_file_table() {
@@ -32,7 +48,7 @@ Finfo* get_file_table() {
 
 int fs_open(const char *pathname, int flags, int mode) {
   Log("fs_open: pathname = %s, flags = %d, mode = %d", pathname, flags, mode);
-  for (size_t i = 0; i < sizeof(file_table) / sizeof(file_table[0]); i++) {
+  for (size_t i = 0; i < NR_FILES; i++) {
     if (strcmp(pathname, file_table[i].name) == 0) {
       return i;
     }
@@ -43,50 +59,68 @@ int fs_open(const char *pathname, int flags, int mode) {
 }
 
 size_t fs_read(int fd, void *buf, size_t count) {
-  assert(fd >= 0 && fd < sizeof(file_table) / sizeof(file_table[0])\
-   && fd != FD_STDOUT && fd != FD_STDERR && "fs_read assert failed");
+  // printf("filename:%s fs_read: fd = %d, buf = 0x%x, count = %d\n",
+  // file_table[fd].name, fd, (uintptr_t)buf, count);
+  if(fd < 0 || fd >= NR_FILES || buf == NULL || count == 0) {
+    printf("Invalid parameter in %s\n", __func__);
+    return 0;
+  }
   // fd为标准输入TODO
   Finfo *f = &file_table[fd];
-  size_t offset = f->open_offset;
-  size_t size = f->size;
   size_t ret = 0;
-  if(offset + count > size) {
-    printf("Truncation Warning: read file:%s out of file size, \
-    count = %d, offset = %d, size = %d\n", f->name, count, offset, size);
-    count = size - offset;
+
+  size_t size = f->size;
+  if(f->read != NULL) {
+    ret = f->read(buf, f->open_offset, count);
+    f->open_offset += ret;
+    return ret;
   }
-  ret = (f->read == NULL) ? \
-  ramdisk_read(buf, f->disk_offset + offset, count) :\
-  f->read(buf, offset, count);
+
+  // 如果是普通文件越界读取则进行截断处理
+  size_t read_ptr = f->open_offset;
+  if(read_ptr >= size) return 0; // 已经到末尾了
+  if(read_ptr + count > size) {
+    printf("Truncation Warning: read file:%s out of file size, \
+    count = %d, offset = %d, size = %d\n", f->name, count, read_ptr, size);
+    count = size - read_ptr;
+  }
+  ret = ramdisk_read(buf, f->disk_offset + read_ptr, count);
 
   f->open_offset += ret;
   return ret;
 }
 
 size_t fs_write(int fd, const void *buf, size_t count) {
-  assert(fd >= 0 && fd < sizeof(file_table) / sizeof(file_table[0])\
-   && fd != FD_STDIN && "fs_write assert failed");
-  if(fd == FD_STDOUT || fd == FD_STDERR) {
-    return serial_write(buf, 0, count);
-  }
+  // 1. 基础校验（VFS层）
+  if (fd < 0 || fd >= NR_FILES || buf == NULL || count == 0) return 0;
+  
   Finfo *f = &file_table[fd];
-  size_t offset = f->open_offset;
-  size_t size = f->size;
-  size_t ret = 0;
-  if(offset + count > size) {
-    printf("Truncation Warning: write file:%s out of file size, \
-    count = %d, offset = %d, size = %d\n", f->name, count, offset, size);
-    count = size - offset;
+  
+  // 2. 如果是设备文件（有自己的 write 函数）
+  if (f->write != NULL) {
+    // 设备驱动自己决定如何处理 count 和 offset
+    // 比如 serial_write 忽略 offset，fb_write 检查越界
+    size_t ret = f->write(buf, f->open_offset, count);
+    f->open_offset += ret;
+    return ret;
   }
-  ret = (f->write == NULL) ? \
-  ramdisk_write(buf, f->disk_offset + offset, count) :\
-  f->write(buf, offset, count);
-  f->open_offset += ret;
-  return ret;
+
+  // 3. 如果是普通文件越界写入则进行截断处理（ramdisk_write）
+  size_t write_ptr = f->open_offset;
+  if (write_ptr >= f->size) return 0; // 已经到末尾了
+  if (write_ptr + count > f->size) {
+    count = f->size - write_ptr; // 截断
+    printf("Truncation Warning: write file:%s out of file size, \
+    count = %d, offset = %d, size = %d\n", f->name, count, write_ptr, f->size);
+  }
+
+  ramdisk_write(buf, f->disk_offset + write_ptr, count);
+  f->open_offset += count;
+  return count;
 }
 
 size_t fs_lseek(int fd, size_t offset, int whence) {
-  if (fd == 0 || fd == 1 || fd == 2) {
+  if (fd == FD_STDIN || fd == FD_STDOUT || fd == FD_STDERR) {
     // 标准输入输出不支持lseek，返回错误
     printf("File lseek failed: fd %d does not support lseek\n", fd);
     return -1;

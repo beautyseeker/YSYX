@@ -7,6 +7,8 @@
 enum {SEEK_SET, SEEK_CUR, SEEK_END};
 #endif
 
+#define BYTE_DEV 0
+
 typedef size_t (*ReadFn) (void *buf, size_t offset, size_t len);
 typedef size_t (*WriteFn) (const void *buf, size_t offset, size_t len);
 
@@ -19,7 +21,15 @@ typedef struct {
   WriteFn write;
 } Finfo;
 
-enum {FD_STDIN, FD_STDOUT, FD_STDERR, FD_FB};
+enum {
+    FD_STDIN,
+    FD_STDOUT,
+    FD_STDERR,
+    FD_EVT,
+    FD_FBCTL,
+    FD_FBDEV,
+    FD_DISPINFO
+};
 
 size_t ramdisk_read(void *buf, size_t offset, size_t len);
 size_t ramdisk_write(const void *buf, size_t offset, size_t len);
@@ -28,8 +38,8 @@ size_t get_ramdisk_size();
 Finfo* get_file_table();
 
 int fs_open(const char *pathname, int flags, int mode);
-size_t fs_read(int fd, void *buf, size_t count);
-size_t fs_write(int fd, const void *buf, size_t count);
+size_t fs_read(int fd, void *buf, size_t count)/*__attribute__((nonnull(2)))*/;
+size_t fs_write(int fd, const void *buf, size_t count) /*__attribute__((nonnull(2)))*/;
 size_t fs_lseek(int fd, size_t offset, int whence);
 int fs_close(int fd);
 
