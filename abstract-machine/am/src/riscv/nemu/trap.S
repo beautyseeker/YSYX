@@ -58,16 +58,16 @@ __am_asm_trap:
   or t1, t1, a0
   csrw mstatus, t1
 
-  mv a0, sp  # sp指向Context指针，作为参数a0传递给异常处理函数
-  call __am_irq_handle  # 这个异常处理函数可能会改变Context内容
-  mv sp, a0
+  mv a0, sp  # sp指向Context指针，Context作为参数a0传递给异常处理函数
+  call __am_irq_handle  # 异常处理函数内部可能会改变Context指针及其内容
+  mv sp, a0  # sp复位到被改变的ctx指针，实现内核线程切换的基础
 
   LOAD t1, OFFSET_STATUS(sp)
   LOAD t2, OFFSET_EPC(sp)
   csrw mstatus, t1  # 根据Context内容改变状态寄存器
   csrw mepc, t2
 
-  MAP(REGS, POP)
+  MAP(REGS, POP) # 异常处理完毕，恢复现场
 
   addi sp, sp, CONTEXT_SIZE  # 回收Context栈空间
-  mret  # 异常处理完毕，PC设置为mepc
+  mret  # 自陷返回，PC跳转到mepc

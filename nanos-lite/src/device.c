@@ -35,6 +35,8 @@ int fb_size = 0;
 int window_w = 0, window_h = 0;
 
 size_t serial_write(const void *buf, size_t offset, size_t len) {
+  CHECK_BUF(buf, len);
+  yield();
   size_t i;
   for (i = 0; i < len; i++) {
     putch(((char *)buf)[i]);
@@ -44,6 +46,7 @@ size_t serial_write(const void *buf, size_t offset, size_t len) {
 
 size_t events_read(void *buf, size_t offset, size_t len) {
   CHECK_BUF(buf, len);
+  yield();
   AM_INPUT_KEYBRD_T ev = io_read(AM_INPUT_KEYBRD);
   // printf("events_read: keycode = %d, keydown = %d, buf = %p, len = %d\n", 
   //   ev.keycode, ev.keydown, buf, len);
@@ -72,6 +75,7 @@ size_t dispinfo_read(void *buf, size_t offset, size_t len) {
 size_t fb_write(const void *buf, size_t offset, size_t len) {
   CHECK_BUF(buf, len);
   CHECK_VALID(window_h != 0 && window_w != 0);
+  yield();
 
   if (offset >= fb_size) return 0;
   if (offset + len > fb_size) {

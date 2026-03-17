@@ -10,6 +10,7 @@ typedef union {
   uint8_t stack[STACK_SIZE] PG_ALIGN;
   struct {
     Context *cp;
+    char name[64];
     AddrSpace as;
     // we do not free memory, so use `max_brk' to determine when to call _map()
     uintptr_t max_brk;
@@ -20,5 +21,6 @@ extern PCB *current;
 
 Context* context_kload(PCB *pcb, void (*entry)(void *), void *arg);
 Context* schedule(Event ev, Context *prev);
+Context* context_uload(PCB *pcb, const char *filename);
 
 #endif

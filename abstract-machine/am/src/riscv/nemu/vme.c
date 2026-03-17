@@ -70,5 +70,8 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
 }
 
 Context *ucontext(AddrSpace *as, Area kstack, void *entry) {
-  return NULL;
+  Context *ctx = (Context *)(kstack.end - sizeof(Context));
+  ctx->mstatus = 0x80; // MPP=U-mode, MPIE=1
+  ctx->mepc = (uintptr_t)entry;
+  return ctx;
 }
