@@ -26,17 +26,17 @@
  * You can modify this value as you want.
  */
 #define MAX_INST_TO_PRINT 10
+#define RING_SIZE 32
 
 CPU_state cpu = {};
 uint64_t g_nr_guest_inst = 0;
 static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
-static char iring_buf[32][128];
+static char iring_buf[RING_SIZE][128];
 static char symbol_buf[256];
 
 void device_update();
 void get_symbol_str(Decode *s);
-static void print_iring() __attribute__((unused));
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 
@@ -141,7 +141,7 @@ static void execute(uint64_t n) {
   }
 }
 
-static void print_iring() {
+void print_iring() {
   int i;
   int n = ARRLEN(iring_buf);
   int start = g_nr_guest_inst % n;

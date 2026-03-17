@@ -21,6 +21,6 @@ extern PCB *current;
 
 Context* context_kload(PCB *pcb, void (*entry)(void *), void *arg);
 Context* schedule(Event ev, Context *prev);
-Context* context_uload(PCB *pcb, const char *filename);
+Context* context_uload(PCB *pcb, const char *filename, char *const argv[], char *const envp[]);
 
 #endif

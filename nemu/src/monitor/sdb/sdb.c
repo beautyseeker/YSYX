@@ -100,6 +100,9 @@ static int cmd_info(char *args) {
   else if(strcmp(args, "w") == 0) {
     wp_list_show();
   }
+  else if(strcmp(args, "i") == 0) {
+    print_iring();
+  }
   else {
     printf("Unknown argument: %s\n", args);
   }
