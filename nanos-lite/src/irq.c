@@ -1,11 +1,12 @@
 #include <common.h>
 #include <am.h>
 extern void do_syscall(Context *c);
+extern Context* schedule(Event e, Context* c);
 
 static Context* do_event(Event e, Context* c) {
   switch (e.event) {
     case EVENT_SYSCALL: do_syscall(c); break;
-    case EVENT_YIELD: yield(); break;
+    case EVENT_YIELD: c = schedule(e, c); break;
     default: panic("Unhandled event ID = %d", e.event);
   }
 

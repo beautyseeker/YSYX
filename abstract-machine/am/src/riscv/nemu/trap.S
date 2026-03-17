@@ -36,19 +36,20 @@ f(30) f(31)
 #define OFFSET_CAUSE  ((NR_REGS + 0) * XLEN)
 #define OFFSET_STATUS ((NR_REGS + 1) * XLEN)
 #define OFFSET_EPC    ((NR_REGS + 2) * XLEN)
+#define STACK_SIZE ((4096) * XLEN)
 
 .align 3
 .globl __am_asm_trap
 __am_asm_trap:
-  addi sp, sp, -CONTEXT_SIZE
+  addi sp, sp, -CONTEXT_SIZE # 开辟Context栈空间
 
-  MAP(REGS, PUSH)
+  MAP(REGS, PUSH)  # 保存gpr寄存器
 
-  csrr t0, mcause
+  csrr t0, mcause # 读异常寄存器
   csrr t1, mstatus
   csrr t2, mepc
 
-  STORE t0, OFFSET_CAUSE(sp)
+  STORE t0, OFFSET_CAUSE(sp) # 保存异常寄存器
   STORE t1, OFFSET_STATUS(sp)
   STORE t2, OFFSET_EPC(sp)
 
@@ -57,15 +58,16 @@ __am_asm_trap:
   or t1, t1, a0
   csrw mstatus, t1
 
-  mv a0, sp
-  call __am_irq_handle
+  mv a0, sp  # sp指向Context指针，作为参数a0传递给异常处理函数
+  call __am_irq_handle  # 这个异常处理函数可能会改变Context内容
+  mv sp, a0
 
   LOAD t1, OFFSET_STATUS(sp)
   LOAD t2, OFFSET_EPC(sp)
-  csrw mstatus, t1
+  csrw mstatus, t1  # 根据Context内容改变状态寄存器
   csrw mepc, t2
 
   MAP(REGS, POP)
 
-  addi sp, sp, CONTEXT_SIZE
-  mret
+  addi sp, sp, CONTEXT_SIZE  # 回收Context栈空间
+  mret  # 异常处理完毕，PC设置为mepc

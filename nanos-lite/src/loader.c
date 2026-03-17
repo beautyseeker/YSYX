@@ -27,7 +27,7 @@ extern size_t ramdisk_write(const void *buf, size_t offset, size_t len);
 
 uintptr_t loader(PCB *pcb, const char *filename) {
   int fd = fs_open(filename, 0, 0);
-  assert(fd >= 0);
+  assert(fd >= 0); assert(pcb != NULL);
   Elf_Ehdr elf;
   fs_read(fd, &elf, sizeof(Elf_Ehdr));
   assert(*(uint32_t *)elf.e_ident == 0x464c457f); // "\x7FELF" in little endian
@@ -43,6 +43,9 @@ uintptr_t loader(PCB *pcb, const char *filename) {
       if (ph.p_memsz > ph.p_filesz) {
         memset((void *)(ph.p_vaddr + ph.p_filesz), 0, ph.p_memsz - ph.p_filesz);
       }
+      if(pcb->max_brk < (uintptr_t)(ph.p_vaddr + ph.p_memsz)) {
+        pcb->max_brk = (uintptr_t)(ph.p_vaddr + ph.p_memsz);
+      }
     }
   }
   fs_close(fd);
@@ -51,6 +54,7 @@ uintptr_t loader(PCB *pcb, const char *filename) {
 
 void naive_uload(PCB *pcb, const char *filename) {
   uintptr_t entry = loader(pcb, filename);
+  context_kload(pcb, (void (*)(void *))entry, NULL);
   Log("Jump to entry = %p", entry);
   ((void(*)())entry) ();
 }

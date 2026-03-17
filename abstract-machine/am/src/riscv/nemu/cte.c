@@ -51,7 +51,16 @@ bool cte_init(Context*(*handler)(Event, Context*)) {
 }
 
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
-  return NULL;
+  //这个函数作用是创建内核进程的上下文Context
+  //传递进来的是一个始于栈顶stack终于上下文指针Context*的地址范围
+  //还传递进来一个入口函数entry和它的参数arg
+  //我猜测这个函数是创建内核进程时的入口函数
+  //调用需要返回一个Context*指针
+  Context *ctx = (Context *)(kstack.end - sizeof(Context));
+  ctx->mstatus = 0x1800; // 设置 MPP=M-mode, MPIE=1
+  ctx->mepc = (uintptr_t)entry;
+  ctx->GPR_A0 = (uintptr_t)arg;
+  return ctx;
 }
 
 void yield() {
