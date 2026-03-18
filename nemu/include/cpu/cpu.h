@@ -17,6 +17,13 @@
 #define __CPU_CPU_H__
 
 #include <common.h>
+typedef struct {
+  vaddr_t pc;           // 当前指令地址
+  uint32_t inst;        // 指令二进制
+  char logbuf[128];     // 包含地址、十六进制和汇编的完整字符串
+} InstSnapshot;
+
+InstSnapshot* get_current_inst_snapshot();
 
 void cpu_exec(uint64_t n);
 

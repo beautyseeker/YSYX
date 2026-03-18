@@ -1,6 +1,7 @@
 #include <common.h>
 #include "syscall.h"
 #include <fs.h>
+#include <proc.h>
 #include <am.h>
 
 struct timeval {
@@ -87,13 +88,17 @@ static void print_strace(uintptr_t *a, uintptr_t ret) {
       // snprintf(str, sizeof(str), "%s(tv_ptr = 0x%x, tz_ptr = 0x%x) = %d", 
       //          syscall_name[id], a[1], a[2], ret);
       return;
+    case SYS_execve:
+      snprintf(str, sizeof(str), "%s(filename = 0x%x, argv = 0x%x, envp = 0x%x) = %d", 
+               syscall_name[id], a[1], a[2], a[3], ret);
+      break;
     default:
       snprintf(str, sizeof(str), "%s(0x%x, 0x%x, 0x%x) = %d", 
                syscall_name[id], a[1], a[2], a[3], ret);
       break;
   }
 
-  printf("\33[1;35m[SystemCallTrace]: %s\33[0m\n", str);
+  printf("\33[1;35m[Strace]: %s\33[0m\n", str);
 }
 #endif
 
@@ -115,6 +120,13 @@ void do_syscall(Context *c) {
     case SYS_brk: c->GPR_A0 = (uintptr_t)_sbrk(a[1]); break;
     case SYS_gettimeofday: c->GPR_A0 = (uintptr_t)_gettimeofday\
     ((struct timeval *)a[1], (struct timezone *)a[2]); break;
+    case SYS_execve:
+      const char *filename = (const char *)a[1];
+      char *const *argv = (char *const *)a[2];
+      char *const *envp = (char *const *)a[3]; 
+      Context* new_thread = context_uload(current, filename, argv, envp);
+      c = new_thread; // 切换到新线程的上下文
+    break;
 
     default: panic("Unhandled syscall ID = %d", a[0]);
   }

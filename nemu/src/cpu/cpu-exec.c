@@ -34,6 +34,7 @@ static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
 static char iring_buf[RING_SIZE][128];
 static char symbol_buf[256];
+static InstSnapshot g_current_inst;
 
 void device_update();
 void get_symbol_str(Decode *s);
@@ -84,8 +85,12 @@ static void exec_once(Decode *s, vaddr_t pc) {
   void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
   disassemble(p, s->logbuf + sizeof(s->logbuf) - p,
       MUXDEF(CONFIG_ISA_x86, s->snpc, s->pc), (uint8_t *)&s->isa.inst, ilen);
-  
-  memmove(iring_buf[g_nr_guest_inst % ARRLEN(iring_buf)], s->logbuf, sizeof(s->logbuf));
+
+  g_current_inst.pc = s->pc;
+  g_current_inst.inst = s->isa.inst;
+  strncpy(g_current_inst.logbuf, s->logbuf, sizeof(g_current_inst.logbuf) - 1);
+  g_current_inst.logbuf[sizeof(g_current_inst.logbuf) - 1] = '\0';
+  memmove(iring_buf[g_nr_guest_inst % RING_SIZE], s->logbuf, sizeof(s->logbuf));
 #endif
 }
 
@@ -130,6 +135,10 @@ void get_symbol_str(Decode *s) {
   }
 }
 
+InstSnapshot* get_current_inst_snapshot() {
+  return &g_current_inst;
+}
+
 static void execute(uint64_t n) {
   Decode s;
   for (;n > 0; n --) {
@@ -143,12 +152,12 @@ static void execute(uint64_t n) {
 
 void print_iring() {
   int i;
-  int n = ARRLEN(iring_buf);
-  int start = g_nr_guest_inst % n;
+  int start = g_nr_guest_inst % RING_SIZE;
   printf(ANSI_FMT("--------------Instruction Ring Buffer (last %d instructions)-------------:\n", 
-  ANSI_FG_CYAN), n);
-  for (i = 0; i < n; i++) {
-    Trace("Iring", ANSI_FG_YELLOW, "%s", iring_buf[(start + i) % n]);
+  ANSI_FG_CYAN), RING_SIZE);
+  for (i = 0; i < RING_SIZE; i++) {
+    int idx = (start + i) % RING_SIZE;
+    Trace("Iring", ANSI_FG_YELLOW, "%s", iring_buf[idx]);
   }
   printf(ANSI_FMT("--------------End of Instruction Ring Buffer-------------\n", ANSI_FG_CYAN));
 }

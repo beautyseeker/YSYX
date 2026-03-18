@@ -3,7 +3,12 @@
 static void *pf = NULL;
 
 void* new_page(size_t nr_page) {
-  return NULL;
+  void *old_pf = pf;
+  pf += nr_page * PGSIZE;
+  if(pf > (void *)heap.end) {
+    panic("Out of physical memory! pf (%p) exceeded heap.end (%p)", pf, heap.end);
+  }
+  return old_pf;
 }
 
 #ifdef HAS_VME

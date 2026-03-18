@@ -1,4 +1,5 @@
 #include <proc.h>
+#include <memory.h>
 
 #define MAX_NR_PROC 4
 
@@ -29,7 +30,8 @@ void init_proc() {
   Log("Initializing processes...");
   context_kload(&pcb[0], hello_fun, (void *)0x12345678);
   // context_kload(&pcb[1], hello_fun, (void *)0x87654321);
-  context_uload(&pcb[1], "/bin/hello", (char *const []){"Jeffrey", "Mia"}, NULL);
+  // char *argv[] = {"/bin/exec-test", "1", NULL};
+  context_uload(&pcb[1], "/bin/exec-test", (char *const []){"/bin/hello", NULL}, NULL);
   // context_uload(&pcb[1], "/bin/hello");
   switch_boot_pcb();
 
@@ -61,10 +63,10 @@ Context* context_uload(PCB *pcb, const char *filename, char *const argv[], char 
   pcb->cp = ucontext(&pcb->as, (Area){pcb->stack,
   pcb->stack + STACK_SIZE}, (void *)entry);
 
-  uintptr_t sp = (uintptr_t)heap.end;
-  sp = parse_args_ustack(argv, envp, sp);
+  uintptr_t sp = (uintptr_t)new_page(STACK_SIZE / PGSIZE); // 为用户栈分配一页物理内存(32KB)
+  sp = parse_args_ustack(argv, envp, sp); // 将传入的参数按照ABI规范压入用户栈，并返回新的栈顶地址
 
-  pcb->cp->GPR_A0 = sp; 
+  pcb->cp->GPR_A0 = sp;  // 栈指针赋值给a0寄存器，便于外部用户程序通过a0解析出argc、argv、envp
   sprintf(pcb->name, "user_pcb_%s", filename);
   printf("Creating user pcb from external file %s in addr %p where entry = %p\n",
   filename, pcb, entry);

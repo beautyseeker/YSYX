@@ -14,6 +14,7 @@
 ***************************************************************************************/
 
 #include "sdb.h"
+#include <cpu/cpu.h>
 
 #define NR_WP 32
 
@@ -92,7 +93,8 @@ int wp_scan_wp() {
       curr->last_value = cur_value;
       triggered = 1;
       nemu_state.state = NEMU_STOP;
-      printf(ANSI_FG_BLUE "Watchpoint %d triggered: %s\n" ANSI_NONE, curr->NO, curr->expr);
+      printf(ANSI_FG_BLUE "Watchpoint %d triggered: %s inst_asm: %s\n" ANSI_NONE,
+         curr->NO, curr->expr, get_current_inst_snapshot()->logbuf);
     }
     curr = curr->next;
   }
