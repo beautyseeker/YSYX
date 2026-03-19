@@ -20,7 +20,7 @@ void *_sbrk(intptr_t increment);
 void _exit(int status);
 int _gettimeofday(struct timeval *tv, struct timezone *tz);
 
-#define CONFIG_STRACE
+// #define CONFIG_STRACE
 
 #ifdef CONFIG_STRACE
 

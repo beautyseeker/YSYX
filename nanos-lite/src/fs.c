@@ -71,22 +71,21 @@ size_t fs_read(int fd, void *buf, size_t count) {
 
   size_t size = f->size;
   if(f->read != NULL) {
-    ret = f->read(buf, f->open_offset, count);
-    f->open_offset += ret;
+    ret = f->read(buf, f->cur_pos, count);
+    f->cur_pos += ret;
     return ret;
   }
 
   // 如果是普通文件越界读取则进行截断处理
-  size_t read_ptr = f->open_offset;
-  if(read_ptr >= size) return 0; // 已经到末尾了
-  if(read_ptr + count > size) {
-    printf("Truncation Warning: read file:%s out of file size, \
-    count = %d, offset = %d, size = %d\n", f->name, count, read_ptr, size);
-    count = size - read_ptr;
+  if(f->cur_pos >= size) return 0; // 已经到末尾了
+  if(f->cur_pos + count > size) {
+    printf("Truncation Warning: read file:%s lseek_ptr %d out of file size = %d,\
+    actual read bytes = %d\n", f->name, f->cur_pos + count, size, count);
+    count = size - f->cur_pos;
   }
-  ret = ramdisk_read(buf, f->disk_offset + read_ptr, count);
+  ret = ramdisk_read(buf, f->disk_pos + f->cur_pos, count);
 
-  f->open_offset += ret;
+  f->cur_pos += ret;
   return ret;
 }
 
@@ -95,28 +94,28 @@ size_t fs_write(int fd, const void *buf, size_t count) {
   if (fd < 0 || fd >= NR_FILES || buf == NULL || count == 0) return 0;
   
   Finfo *f = &file_table[fd];
+  size_t ret = 0;
   
   // 2. 如果是设备文件（有自己的 write 函数）
   if (f->write != NULL) {
     // 设备驱动自己决定如何处理 count 和 offset
     // 比如 serial_write 忽略 offset，fb_write 检查越界
-    size_t ret = f->write(buf, f->open_offset, count);
-    f->open_offset += ret;
+    ret = f->write(buf, f->cur_pos, count);
+    f->cur_pos += ret;
     return ret;
   }
 
   // 3. 如果是普通文件越界写入则进行截断处理（ramdisk_write）
-  size_t write_ptr = f->open_offset;
-  if (write_ptr >= f->size) return 0; // 已经到末尾了
-  if (write_ptr + count > f->size) {
-    count = f->size - write_ptr; // 截断
-    printf("Truncation Warning: write file:%s out of file size, \
-    count = %d, offset = %d, size = %d\n", f->name, count, write_ptr, f->size);
+  if (f->cur_pos >= f->size) return 0; // 已经到末尾了
+  if (f->cur_pos + count > f->size) {
+    count = f->size - f->cur_pos; // 截断
+    printf("Truncation Warning: write file:%s lseek_ptr %d out of file size = %d,\
+    actual write bytes= %d\n", f->name, f->cur_pos + count, f->size, count);
   }
 
-  ramdisk_write(buf, f->disk_offset + write_ptr, count);
-  f->open_offset += count;
-  return count;
+  ret = ramdisk_write(buf, f->disk_pos + f->cur_pos, count);
+  f->cur_pos += ret;
+  return ret;
 }
 
 size_t fs_lseek(int fd, size_t offset, int whence) {
@@ -125,19 +124,23 @@ size_t fs_lseek(int fd, size_t offset, int whence) {
     printf("File lseek failed: fd %d does not support lseek\n", fd);
     return -1;
   }
+  // if(strcmp(file_table[fd].name, "/share/pictures/projectn.bmp") == 0)
+  //   printf("fs_lseek: fd = %d, offset = %d, whence = %d\n", fd, offset, whence);
   int new_pos;
   switch (whence) {
     case SEEK_SET: new_pos = offset; break;
-    case SEEK_CUR: new_pos = file_table[fd].open_offset + offset; break;
+    case SEEK_CUR: new_pos = file_table[fd].cur_pos + offset; break;
     case SEEK_END: new_pos = file_table[fd].size + offset; break;
-    default: new_pos = file_table[fd].open_offset;
+    default: new_pos = file_table[fd].cur_pos;
   }
 
   if (new_pos < 0) {
+    printf("Warnning Invalid lseek offset in file: %s, new_pos = %d\n", file_table[fd].name, new_pos);
     return -1;
   }
+  if (new_pos > file_table[fd].size) new_pos = file_table[fd].size;
 
-  file_table[fd].open_offset = new_pos;
+  file_table[fd].cur_pos = new_pos;
   return new_pos;
 }
 

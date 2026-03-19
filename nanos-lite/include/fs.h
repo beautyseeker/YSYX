@@ -15,8 +15,8 @@ typedef size_t (*WriteFn) (const void *buf, size_t offset, size_t len);
 typedef struct {
   char *name;
   size_t size;
-  size_t disk_offset;
-  size_t open_offset;
+  size_t disk_pos;
+  size_t cur_pos;
   ReadFn read;
   WriteFn write;
 } Finfo;

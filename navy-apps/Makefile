@@ -182,6 +182,7 @@ ALL_TEST_DIRS := $(shell ls $(NAVY_HOME)/tests/)
 TESTS := $(shell for dir in $(NAVY_HOME)/tests/$(ALL_TEST_DIRS); do \
 			if [ -d $(NAVY_HOME)/tests/$$dir/build ]; then basename $$dir; fi; \
 			done)
+TESTS += bmp-test
 
 fsimg: $(addprefix apps/, $(APPS)) $(addprefix tests/, $(TESTS))
 	-for t in $^; do $(MAKE) -s -C $(NAVY_HOME)/$$t install; done

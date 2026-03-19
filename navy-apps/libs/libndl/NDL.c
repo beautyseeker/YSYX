@@ -61,9 +61,7 @@ void NDL_OpenCanvas(int *w, int *h) {
       exit(1);
     }
     buf[nread] = '\0';
-    sscanf(buf, "WIDTH : %d\nHEIGHT : %d", &screen_w, &screen_h);
-    *w = screen_w;
-    *h = screen_h;
+    sscanf(buf, "WIDTH : %d\nHEIGHT:%d", &screen_w, &screen_h);
   }
   if (screen_w == 0 || screen_h == 0) {
       // 如果解析失败，给一个保底的物理分辨率（根据你的 NEMU 配置）
@@ -90,9 +88,9 @@ void NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h) {
   for (int i = 0; i < h; i++) {
     // 1. 计算这一行在显存中的起始位置（单位：像素）
     // 假设渲染位置需要加上画布本身的偏移 (canvas_x, canvas_y)
-    int screen_x = x + offset_x;
-    int screen_y = y + i + offset_y;
-    uintptr_t offset = (screen_y * screen_w + screen_x) * sizeof(uint32_t);
+    int draw_x = x + offset_x;
+    int draw_y = y + i + offset_y;
+    uintptr_t offset = (draw_y * screen_w + draw_x) * sizeof(uint32_t);
 
     // 2. 移动文件指针到这一行的开头
     lseek(fbdev, offset, SEEK_SET);

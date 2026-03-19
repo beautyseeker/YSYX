@@ -66,7 +66,7 @@ size_t dispinfo_read(void *buf, size_t offset, size_t len) {
   window_h = cfg.height;
   window_w = cfg.width;
   printf("fb parameter initialized by dispinfo_read:\
-  window_w = %d, window_h = %d\n", window_w, window_h);
+  window_w = %d, window_h = %d, fb_size = %d\n", window_w, window_h, fb_size);
   size_t read_bytes = snprintf(buf, len, "WIDTH : %d\nHEIGHT:%d\n",
      cfg.width, cfg.height);
   return read_bytes;
@@ -101,7 +101,7 @@ size_t fb_write(const void *buf, size_t offset, size_t len) {
 size_t fb_ctl_write(const void *buf, size_t offset, size_t len) {
   CHECK_BUF(buf, len);
   char *p = (char *)buf;
-  window_h = 0;
+  window_w = 0;
   while(*p != ' ') {
     window_w = window_w * 10 + (*p - '0');
     p++;
