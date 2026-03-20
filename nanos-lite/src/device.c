@@ -56,7 +56,7 @@ size_t events_read(void *buf, size_t offset, size_t len) {
 
   const char *keytype = ev.keydown ? "kd" : "ku";
   const char *key_name = keyname[ev.keycode];
-  size_t read_bytes = snprintf(buf, len, "%s %s", keytype, key_name);
+  size_t read_bytes = snprintf(buf, len, "%s %s\n", keytype, key_name);
   return read_bytes;
 }
 

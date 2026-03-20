@@ -5,15 +5,128 @@
 #include <stdlib.h>
 
 void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect) {
-  assert(dst && src);
-  assert(dst->format->BitsPerPixel == src->format->BitsPerPixel);
+  assert(dst && src && "src and dst surfaces must not be NULL");
+  assert(dst->format->BitsPerPixel == src->format->BitsPerPixel && 
+  "Blitting surfaces with different pixel formats is not supported");
+
+  // 1. 初始化实际操作的矩形区域
+  int src_x = (srcrect) ? srcrect->x : 0;
+  int src_y = (srcrect) ? srcrect->y : 0;
+  int dst_x = (dstrect) ? dstrect->x : 0;
+  int dst_y = (dstrect) ? dstrect->y : 0;
+  int w = (srcrect) ? srcrect->w : src->w;
+  int h = (srcrect) ? srcrect->h : src->h;
+
+  // 2. 核心裁剪逻辑 (Clipping)
+  // 如果目标矩形超出边界，必须同步裁剪源矩形和宽度/高度
+  if (dst_x < 0) { w += dst_x; src_x -= dst_x; dst_x = 0; }
+  if (dst_y < 0) { h += dst_y; src_y -= dst_y; dst_y = 0; }
+  if (dst_x + w > dst->w) { w = dst->w - dst_x; }
+  if (dst_y + h > dst->h) { h = dst->h - dst_y; }
+
+  // 同样也要检查源矩形是否越界
+  if (src_x < 0) { w += src_x; dst_x -= src_x; src_x = 0; }
+  if (src_y < 0) { h += src_y; dst_y -= src_y; src_y = 0; }
+  if (src_x + w > src->w) { w = src->w - src_x; }
+  if (src_y + h > src->h) { h = src->h - src_y; }
+
+  // 如果裁剪后宽高小于等于0，说明不需要搬运数据
+  if (w <= 0 || h <= 0) return;
+
+  // 3. 开始搬运像素
+  uint32_t bpp = src->format->BytesPerPixel;
+  uint8_t *src_pixels = (uint8_t *)src->pixels;
+  uint8_t *dst_pixels = (uint8_t *)dst->pixels;
+
+  for (int i = 0; i < h; i++) {
+    // 计算当前行在 src 中的起始位置
+    uint8_t *s_line = src_pixels + (src_y + i) * src->pitch + src_x * bpp;
+    // 计算当前行在 dst 中的起始位置
+    uint8_t *d_line = dst_pixels + (dst_y + i) * dst->pitch + dst_x * bpp;
+    
+    // 使用 memcpy 进行行拷贝，利用硬件级优化加速
+    memcpy(d_line, s_line, w * bpp);
+  }
 }
 
 void SDL_FillRect(SDL_Surface *dst, SDL_Rect *dstrect, uint32_t color) {
+  assert(dst && "dst surface must not be NULL");
+  
+  int x, y, w, h;
+  // 1. 处理 dstrect 为 NULL 的情况：填充全屏
+  if (dstrect == NULL) {
+    x = 0; y = 0; w = dst->w; h = dst->h;
+  } else {
+    x = dstrect->x; y = dstrect->y; w = dstrect->w; h = dstrect->h;
+    // 2. 简单的边界裁剪（防止越界访问导致崩溃）
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > dst->w) w = dst->w - x;
+    if (y + h > dst->h) h = dst->h - y;
+    if (w <= 0 || h <= 0) return; // 矩形在屏幕外，直接返回
+  }
+
+  // 使用 uint8_t* 确保指针运算以字节为单位
+  uint8_t *pixels = (uint8_t *)dst->pixels;
+  uint32_t bpp = dst->format->BytesPerPixel;
+
+  // 3. 将判断移出循环，提升性能
+  if (dst->format->BitsPerPixel == 8) {
+    for (int i = 0; i < h; i++) {
+      uint8_t *line = pixels + (y + i) * dst->pitch + x * bpp;
+      for (int j = 0; j < w; j++) {
+        line[j] = (uint8_t)color;
+      }
+    }
+  } else if (dst->format->BitsPerPixel == 32) {
+    for (int i = 0; i < h; i++) {
+      uint32_t *line = (uint32_t *)(pixels + (y + i) * dst->pitch + x * bpp);
+      for (int j = 0; j < w; j++) {
+        line[j] = color;
+      }
+    }
+  }
 }
 
 void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
+  assert(s && "surface must not be NULL");
+  // NDL_DrawRect((uint32_t *)s->pixels, x, y, w, h);
+  // 1. 处理特殊情况：如果 x, y, w, h 全为 0，则更新整个 Surface
+  if (x == 0 && y == 0 && w == 0 && h == 0) {
+    w = s->w;
+    h = s->h;
+  }
+
+  // 2. 准备像素数据
+  // 如果是全屏更新，且 surface 的 pitch 等于宽度*4，可以直接传 s->pixels
+  // 但 SDL 支持局部更新，这意味着我们要从 s->pixels 中提取出一个“子矩阵”
+  
+  if (s->format->BitsPerPixel == 32) {
+    // 申请一块临时内存或直接按行处理，因为 NDL_DrawRect 需要的是连续的像素块
+    // 如果你要更新的矩形宽度 < Surface 的宽度，内存是不连续的（受 pitch 影响）
+    
+    // uint32_t *pixels = malloc(w * h * sizeof(uint32_t));
+    // uint32_t *src_p = (uint32_t *)s->pixels;
+
+    // for (int i = 0; i < h; i++) {
+    //   // 从 Surface 的每一行中拷贝出需要的宽度 w
+    //   // 计算源行地址：pixels + (y+i)*pitch + x*4
+    //   memcpy(&pixels[i * w], 
+    //          (uint8_t *)src_p + (y + i) * s->pitch + x * 4, 
+    //          w * 4);
+    // }
+
+    // 调用 NDL 接口将像素刷到屏幕上
+    NDL_DrawRect((uint32_t *)s->pixels, x, y, w, h);
+
+    // free(pixels);
+  } else if (s->format->BitsPerPixel == 8) {
+    // 8位色通常需要查表（Palette），但在简单的 Navy 实现中可能直接报错或处理
+    printf("8-bit surface update not implemented\n");
+    assert(0); 
+  }
 }
+
 
 // APIs below are already implemented.
 

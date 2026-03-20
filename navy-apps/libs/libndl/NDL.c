@@ -27,7 +27,14 @@ uint32_t NDL_GetTicks() {
 }
 
 int NDL_PollEvent(char *buf, int len) {
-  int ret = read(evtdev, buf, len);
+  if(buf == NULL || len <= 0) {
+    return 0;
+  }
+  if(evtdev < 0) {
+    printf("evtdev not initialized in NDL_PollEvent\n");
+    return 0;
+  }
+  int ret = read(evtdev, buf, len-1);
   if (ret > 0) {
     buf[ret] = '\0'; // 确保字符串以 null 结尾
     return ret;
@@ -82,9 +89,16 @@ void NDL_OpenCanvas(int *w, int *h) {
 }
 
 void NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h) {
-  assert(pixels != NULL && x >= 0 && y >= 0 && w > 0 && h > 0 
-  && "invalid NDL_DrawRect parameters");
-  assert(fbdev >= 0 && "fbdev not initialized");
+  if(pixels == NULL || x < 0 || y < 0 || w < 0 || h < 0) {
+    printf("Invalid parameters for NDL_DrawRect: pixels = %p, x = %d, y = %d, w = %d, h = %d\n",
+           pixels, x, y, w, h);
+    assert(0 && "invalid NDL_DrawRect parameters");
+  }
+  if(fbdev < 0) {
+    printf("fbdev not initialized in NDL_DrawRect\n");
+    assert(0 && "fbdev not initialized");
+  }
+
   for (int i = 0; i < h; i++) {
     // 1. 计算这一行在显存中的起始位置（单位：像素）
     // 假设渲染位置需要加上画布本身的偏移 (canvas_x, canvas_y)
