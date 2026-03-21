@@ -23,6 +23,33 @@ static void sh_prompt() {
 }
 
 static void sh_handle_cmd(const char *cmd) {
+  char *full_cmd = strdup(cmd);
+  char *opt = strtok(full_cmd, " \t\r\n");
+  char *args = strtok(NULL, ""); 
+  if(strcmp(opt, "echo") == 0) {
+    sh_printf("%s", args ? args : "");
+  } else if (strcmp(opt, "clear") == 0) {
+    term->clear();
+  } else if (strcmp(opt, "exit") == 0) {
+    exit(0);
+  } else {
+    sh_printf("Unknown command: %s", opt);
+  }
+  // char opt[16];
+  // char arg[64];
+  // if (sscanf(cmd, "%s %s", opt, arg) == 2) {
+  //   if (strcmp(opt, "echo") == 0) {
+  //     sh_printf("%s\n", arg);
+  //   } else if (strcmp(opt, "clear") == 0) {
+  //     term->clear();
+  //   } else if (strcmp(opt, "exit") == 0) {
+  //     exit(0);
+  //   } else {
+  //     sh_printf("Unknown command: %s", cmd);
+  //   }
+  // }
+  // else
+  //   sh_printf("Invalid command: %s", cmd);
 }
 
 void builtin_sh_run() {

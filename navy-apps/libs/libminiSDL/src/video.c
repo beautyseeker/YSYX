@@ -32,20 +32,28 @@ void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_
 
   // 如果裁剪后宽高小于等于0，说明不需要搬运数据
   if (w <= 0 || h <= 0) return;
-
-  // 3. 开始搬运像素
-  uint32_t bpp = src->format->BytesPerPixel;
-  uint8_t *src_pixels = (uint8_t *)src->pixels;
-  uint8_t *dst_pixels = (uint8_t *)dst->pixels;
+  uint32_t src_bpp = src->format->BytesPerPixel;
+  uint32_t dst_bpp = dst->format->BytesPerPixel;
 
   for (int i = 0; i < h; i++) {
-    // 计算当前行在 src 中的起始位置
-    uint8_t *s_line = src_pixels + (src_y + i) * src->pitch + src_x * bpp;
-    // 计算当前行在 dst 中的起始位置
-    uint8_t *d_line = dst_pixels + (dst_y + i) * dst->pitch + dst_x * bpp;
-    
-    // 使用 memcpy 进行行拷贝，利用硬件级优化加速
-    memcpy(d_line, s_line, w * bpp);
+    uint8_t *s_line = (uint8_t *)src->pixels + (src_y + i) * src->pitch + src_x * src_bpp;
+    uint8_t *d_line = (uint8_t *)dst->pixels + (dst_y + i) * dst->pitch + dst_x * dst_bpp;
+
+    // 情况 A: 格式相同（比如 8->8 或 32->32），直接 memcpy
+    if (src->format->BitsPerPixel == dst->format->BitsPerPixel) {
+      memcpy(d_line, s_line, w * src_bpp);
+    } 
+    // 情况 B: 8位转32位（仙剑的核心需求）
+    else if (src->format->BitsPerPixel == 8 && dst->format->BitsPerPixel == 32) {
+      uint32_t *d_pixel32 = (uint32_t *)d_line;
+      SDL_Color *palette = src->format->palette->colors;
+      for (int j = 0; j < w; j++) {
+        uint8_t index = s_line[j];
+        SDL_Color c = palette[index];
+        // 查表并组合成 32 位颜色 (00RRGGBB)
+        d_pixel32[j] = (c.r << 16) | (c.g << 8) | c.b;
+      }
+    }
   }
 }
 
@@ -121,9 +129,19 @@ void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h) {
 
     // free(pixels);
   } else if (s->format->BitsPerPixel == 8) {
-    // 8位色通常需要查表（Palette），但在简单的 Navy 实现中可能直接报错或处理
-    printf("8-bit surface update not implemented\n");
-    assert(0); 
+    // 必须要有一个临时缓冲区来存放转换后的 32 位像素，因为 NDL 只吃 32 位
+    uint32_t *temp_pixels = malloc(w * h * sizeof(uint32_t));
+    SDL_Color *palette = s->format->palette->colors;
+    
+    for (int i = 0; i < h; i++) {
+      uint8_t *src_line = (uint8_t *)s->pixels + (y + i) * s->pitch + x;
+      for (int j = 0; j < w; j++) {
+        SDL_Color c = palette[src_line[j]];
+        temp_pixels[i * w + j] = (c.r << 16) | (c.g << 8) | c.b;
+      }
+    }
+    NDL_DrawRect(temp_pixels, x, y, w, h);
+    free(temp_pixels);
   }
 }
 

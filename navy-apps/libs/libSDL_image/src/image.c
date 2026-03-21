@@ -12,7 +12,33 @@ SDL_Surface* IMG_Load_RW(SDL_RWops *src, int freesrc) {
 }
 
 SDL_Surface* IMG_Load(const char *filename) {
-  return NULL;
+  FILE *fp = fopen(filename, "rb");
+  if (!fp) {
+    fprintf(stderr, "Failed to open file: %s\n", filename);
+    return NULL;
+  }
+    // 获取文件大小
+  fseek(fp, 0, SEEK_END);
+  long fsize = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+  unsigned char *buffer = malloc(fsize);
+  if (!buffer) {
+    fprintf(stderr, "Failed to allocate memory for file: %s\n", filename);
+    fclose(fp);
+    return NULL;
+  }
+  
+  size_t read_bytes = fread(buffer, 1, fsize, fp);
+  if (read_bytes != fsize) {
+    fprintf(stderr, "Failed to read file: %s\n", filename);
+    free(buffer);
+    fclose(fp);
+    return NULL;
+  }
+  SDL_Surface *surface = STBIMG_LoadFromMemory(buffer, fsize);
+  free(buffer);
+  fclose(fp);
+  return surface;
 }
 
 int IMG_isPNG(SDL_RWops *src) {
