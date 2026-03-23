@@ -135,11 +135,23 @@ int NDL_Init(uint32_t flags) {
   }
   else {
     evtdev = open("/dev/events", 0, 0);
+    if(evtdev < 0) {
+      printf("Failed to open /dev/events in NDL_Init\n");
+      return -1;
+    }
     fbctl = open("/dev/fbctl", 0, 0);
+    if(fbctl < 0) {
+      printf("Failed to open /dev/fbctl in NDL_Init\n");
+      return -1;
+    }
     fbdev = open("/dev/fb", 0, 0);
+    if(fbdev < 0) {
+      printf("Failed to open /dev/fb in NDL_Init\n");
+      return -1;
+    }
     dispinfo = open("/proc/dispinfo", 0, 0);
-    if(evtdev < 0 || fbctl < 0 || fbdev < 0 || dispinfo < 0) {
-      printf("Failed to open devices in NDL_Init\n");
+    if(dispinfo < 0) {
+      printf("Failed to open /proc/dispinfo in NDL_Init\n");
       return -1;
     }
   }

@@ -28,12 +28,23 @@ void (*ref_difftest_raise_intr)(uint64_t NO) = NULL;
 
 #ifdef CONFIG_DIFFTEST
 
+
+struct DiffTestMode {
+  bool skip_ref; // whether to skip checking reference design for an instruction
+  int skip_dut_nr_inst; // how many instructions to skip in DUT before checking with reference design
+  bool detatch_mode; // whether to detatch from reference design, i.e. not doing differential testing
+};
+
+
 static bool is_skip_ref = false;
 static int skip_dut_nr_inst = 0;
+static bool is_detatch_mode = false;
+static long IMG_SIZE = 0;
 
 // this is used to let ref skip instructions which
 // can not produce consistent behavior with NEMU
 void difftest_skip_ref() {
+  if(is_detatch_mode) return;
   is_skip_ref = true;
   // If such an instruction is one of the instruction packing in QEMU
   // (see below), we end the process of catching up with QEMU's pc to
@@ -45,6 +56,16 @@ void difftest_skip_ref() {
   skip_dut_nr_inst = 0;
 }
 
+void difftest_detach() {
+  is_detatch_mode = true;
+}
+
+void difftest_attach() {
+  is_detatch_mode = false;
+  ref_difftest_regcpy(&cpu, DIFFTEST_TO_DUT);
+  ref_difftest_memcpy(RESET_VECTOR, guest_to_host(RESET_VECTOR), IMG_SIZE, DIFFTEST_TO_REF);
+}
+
 // this is used to deal with instruction packing in QEMU.
 // Sometimes letting QEMU step once will execute multiple instructions.
 // We should skip checking until NEMU's pc catches up with QEMU's pc.
@@ -52,6 +73,7 @@ void difftest_skip_ref() {
 //   Let REF run `nr_ref` instructions first.
 //   We expect that DUT will catch up with REF within `nr_dut` instructions.
 void difftest_skip_dut(int nr_ref, int nr_dut) {
+  if(is_detatch_mode) return;
   skip_dut_nr_inst += nr_dut;
 
   while (nr_ref -- > 0) {
@@ -87,6 +109,7 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
       "If it is not necessary, you can turn it off in menuconfig.", ref_so_file);
 
   ref_difftest_init(port);
+  IMG_SIZE = img_size;
   ref_difftest_memcpy(RESET_VECTOR, guest_to_host(RESET_VECTOR), img_size, DIFFTEST_TO_REF);
   ref_difftest_regcpy(&cpu, DIFFTEST_TO_REF);
 }
@@ -100,6 +123,7 @@ static void checkregs(CPU_state *ref, vaddr_t pc) {
 }
 
 void difftest_step(vaddr_t pc, vaddr_t npc) {
+  if(is_detatch_mode) return;
   CPU_state ref_r;
 
   if (skip_dut_nr_inst > 0) {

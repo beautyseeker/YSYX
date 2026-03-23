@@ -42,6 +42,14 @@ int cmd_d(char *args);
 
 int cmd_b(char *hex_addr);
 
+int cmd_detach(char *args);
+
+int cmd_attach(char *args);
+
+int save_snapshot(char *filename);
+
+int load_snapshot(char *filename);
+
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
   static char *line_read = NULL;
@@ -212,6 +220,20 @@ int cmd_d(char *args) {
   return 0;
 } 
 
+extern void difftest_detach();
+int cmd_detach(char *args) {
+  difftest_detach();
+  Log("Detached from reference design. Differential testing is now disabled.");
+  return 0;
+}
+
+int cmd_attach(char *args) {
+  isa_difftest_attach();
+  Log("Attached to reference design. Differential testing is now enabled.");
+  return 0;
+}
+
+
 static struct {
   const char *name;
   const char *description;
@@ -227,6 +249,10 @@ static struct {
   {"w", "Set a watchpoint for an expression", cmd_w },
   {"d", "Delete a watchpoint with given NO.", cmd_d },
   {"b", "Set a breakpoint at given hexadecimal address", cmd_b },
+  {"detach", "Close difftest from the reference design", cmd_detach},
+  {"attach", "Open difftest attach to the reference design", cmd_attach},
+  {"save [path]", "Save the nemu state to path", save_snapshot},
+  {"load [path]", "Load the nemu state from path", load_snapshot},
   /* TODO: Add more commands */
 
 };
