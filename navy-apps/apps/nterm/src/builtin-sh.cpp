@@ -23,8 +23,16 @@ static void sh_prompt() {
 }
 
 static void sh_handle_cmd(const char *cmd) {
+  if(cmd == NULL || cmd[0] == '\0') {
+    sh_printf("\n"); 
+    return;
+  }
   char *full_cmd = strdup(cmd);
   char *opt = strtok(full_cmd, " \t\r\n");
+  if(opt == NULL) {
+    free(full_cmd);
+    return;
+  }
   char *args = strtok(NULL, ""); 
   if(strcmp(opt, "echo") == 0) {
     sh_printf("%s", args ? args : "");
@@ -33,8 +41,9 @@ static void sh_handle_cmd(const char *cmd) {
   } else if (strcmp(opt, "exit") == 0) {
     exit(0);
   } else {
-    sh_printf("Unknown command: %s", opt);
+    sh_printf("Unknown command: %s\n", opt);
   }
+  free(full_cmd);
   // char opt[16];
   // char arg[64];
   // if (sscanf(cmd, "%s %s", opt, arg) == 2) {

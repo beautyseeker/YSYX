@@ -220,9 +220,8 @@ int cmd_d(char *args) {
   return 0;
 } 
 
-extern void difftest_detach();
 int cmd_detach(char *args) {
-  difftest_detach();
+  // isa_difftest_detach();
   Log("Detached from reference design. Differential testing is now disabled.");
   return 0;
 }
@@ -233,6 +232,15 @@ int cmd_attach(char *args) {
   return 0;
 }
 
+int save_snapshot(char *filename) {
+  printf("Saving snapshot to '%s'...\n", filename);
+  return 0;
+}
+
+int load_snapshot(char *filename) {
+  printf("Loading snapshot from '%s'...\n", filename);
+  return 0;
+}
 
 static struct {
   const char *name;

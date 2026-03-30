@@ -30,8 +30,15 @@ uintptr_t loader(PCB *pcb, const char *filename) {
   assert(fd >= 0); assert(pcb != NULL);
   Elf_Ehdr elf;
   fs_read(fd, &elf, sizeof(Elf_Ehdr));
-  assert(*(uint32_t *)elf.e_ident == 0x464c457f); // "\x7FELF" in little endian
-  assert(elf.e_machine == EXPECT_TYPE_ISA);
+  if(*(uint32_t *)elf.e_ident != 0x464c457f) {
+    printf("Invalid ELF magic number: 0x%x\n", *(uint32_t *)elf.e_ident);
+    panic("Invalid ELF file: %s", filename);
+  }
+  if(elf.e_machine != EXPECT_TYPE_ISA) {
+  printf("Unsupported ISA in ELF file: e_machine = %d, expected = %d\n",
+          elf.e_machine, EXPECT_TYPE_ISA);
+  panic("Unsupported ISA in ELF file: %s", filename);
+  }
   Elf_Phdr ph;
   for (int i = 0; i < elf.e_phnum; i ++) {
     fs_lseek(fd, elf.e_phoff + i * elf.e_phentsize, SEEK_SET);

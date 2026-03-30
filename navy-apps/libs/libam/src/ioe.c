@@ -5,13 +5,19 @@
 #include <string.h>
 #include <stdbool.h>
 
+#define STR(k) #k,
 static const char *keyname[] = {
   "NONE",
-  AM_KEYS(AM_KEY_NAMES)
+  AM_KEYS(STR)
 };
 
+static int screen_w = 0, screen_h = 0;
+
 bool ioe_init() {
-  return NDL_Init(0);
+  bool ret = NDL_Init(0);
+    // 在初始化时就确定屏幕大小
+    NDL_OpenCanvas(&screen_w, &screen_h);
+    return ret;
 }
 
 void ioe_read (int reg, void *buf) { 
@@ -48,10 +54,24 @@ void ioe_read (int reg, void *buf) {
     }
     case AM_GPU_CONFIG: {
       AM_GPU_CONFIG_T *cfg = (AM_GPU_CONFIG_T *)buf;
-      NDL_OpenCanvas(&cfg->width, &cfg->height);  
+      cfg->width = screen_w;
+      cfg->height = screen_h;
       cfg->present = true;
       cfg->has_accel = false;
       cfg->vmemsz = cfg->width * cfg->height * sizeof(uint32_t); // 每个像素4字节
+      break;
+    }
+
+    case AM_INPUT_CONFIG: {
+      AM_INPUT_CONFIG_T *cfg = (AM_INPUT_CONFIG_T *)buf;
+      cfg->present = true;
+      break;
+    }
+
+    case AM_TIMER_CONFIG: {
+      AM_TIMER_CONFIG_T *cfg = (AM_TIMER_CONFIG_T *)buf;
+      cfg->present = true;
+      cfg->has_rtc = true;
       break;
     }
 
@@ -64,11 +84,17 @@ void ioe_write(int reg, void *buf) {
   switch (reg) {
     case AM_GPU_FBDRAW: {
       AM_GPU_FBDRAW_T *ctl = (AM_GPU_FBDRAW_T *)buf;
-      NDL_DrawRect(ctl->pixels, ctl->x, ctl->y, ctl->w, ctl->h);
+      // 只有当 w, h 不为 0 时才调用绘图
+      if (ctl->w > 0 && ctl->h > 0) {
+        NDL_DrawRect(ctl->pixels, ctl->x, ctl->y, ctl->w, ctl->h);
+      }
+      // 关键：处理同步信号
+      if (ctl->sync) {
+        // 如果你的 NDL 有显式的同步接口，在这里调用
+        // 或者 NDL_DrawRect 内部已经处理了同步。
+        // 在某些实现中，NDL_RenderPresent() 或是类似的
+      }
       break;
     }
-    default:
-      printf("ioe_write: unsupported reg %d", reg);
-      assert(0 && "unsupported reg");
   }
 }
