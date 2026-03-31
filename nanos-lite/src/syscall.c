@@ -14,7 +14,7 @@ struct timezone {
   int tz_dsttime;         /* 夏令时修正类型 */
 };
 
-void do_syscall(Context *c);
+Context* do_syscall(Context *c);
 int brk(void *addr);
 void *_sbrk(intptr_t increment);
 void _exit(int status);
@@ -102,7 +102,7 @@ static void print_strace(uintptr_t *a, uintptr_t ret) {
 }
 #endif
 
-void do_syscall(Context *c) {
+Context* do_syscall(Context *c) {
   uintptr_t a[4];
   a[0] = c->GPR1;   // 系统调用号寄存器，决定系统调用类型，通常是a7/a5寄存器
   a[1] = c->GPR_A0; // 系统调用参数寄存器，通常存放文件描述符，也可能被用来存放返回值寄存器
@@ -111,7 +111,7 @@ void do_syscall(Context *c) {
 
   switch (a[0]) {
     case SYS_yield: c->GPR_A0 = 0; break;
-    case SYS_exit: _exit(a[1]); break;
+    case SYS_exit: return context_uload(current, "/bin/menu", NULL, NULL); break;
     case SYS_open: c->GPR_A0 = (uintptr_t)fs_open((const char *)a[1], a[2], a[3]); break;
     case SYS_read: c->GPR_A0 = (uintptr_t)fs_read(a[1], (void *)a[2], a[3]); break;
     case SYS_write: c->GPR_A0 = (uintptr_t)fs_write(a[1], (void *)a[2], a[3]); break;
@@ -130,6 +130,7 @@ void do_syscall(Context *c) {
 
     default: panic("Unhandled syscall ID = %d", a[0]);
   }
+  return c;
 
 #ifdef CONFIG_STRACE
   print_strace(a, c->GPR_A0);

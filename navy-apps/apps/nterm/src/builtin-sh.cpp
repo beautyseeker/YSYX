@@ -33,13 +33,23 @@ static void sh_handle_cmd(const char *cmd) {
     free(full_cmd);
     return;
   }
-  char *args = strtok(NULL, ""); 
+  char *args = strtok(NULL, "\t\r\n");
   if(strcmp(opt, "echo") == 0) {
-    sh_printf("%s", args ? args : "");
+    sh_printf("%s\n", args ? args : "");
   } else if (strcmp(opt, "clear") == 0) {
     term->clear();
   } else if (strcmp(opt, "exit") == 0) {
     exit(0);
+  } else if(strcmp(opt, "exec") == 0) {
+    if(args == NULL) {
+      sh_printf("Usage: exec CMD\n");
+    } else {
+      setenv("PATH", "/bin", 1);
+      char *argv[] = {NULL};
+      execvp(args, argv);
+      // execv(args, NULL);
+      sh_printf("Failed to exec %s\n", args);
+    }
   } else {
     sh_printf("Unknown command: %s\n", opt);
   }
