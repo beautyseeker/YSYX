@@ -122,8 +122,8 @@ Context* do_syscall(Context *c) {
     ((struct timeval *)a[1], (struct timezone *)a[2]); break;
     case SYS_execve:
       const char *filename = (const char *)a[1];
-      char *const *argv = (char *const *)a[2];
-      char *const *envp = (char *const *)a[3]; 
+      char **argv = (char **)a[2];
+      char **envp = (char **)a[3]; 
       Context* new_thread = context_uload(current, filename, argv, envp);
       c = new_thread; // 切换到新线程的上下文
     break;

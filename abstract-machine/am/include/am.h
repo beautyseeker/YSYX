@@ -8,9 +8,18 @@
                 // examples: "arch/x86-qemu.h", "arch/native.h", ...
 
 // Memory protection flags
+#define VPN1(va) (((uintptr_t)(va) >> 22) & 0x3ff)
+#define VPN0(va) (((uintptr_t)(va) >> 12) & 0x3ff)
 #define MMAP_NONE  0x00000000 // no access
 #define MMAP_READ  0x00000001 // can read
 #define MMAP_WRITE 0x00000002 // can write
+#define PTE_V 0x01
+#define PTE_R 0x02
+#define PTE_W 0x04
+#define PTE_X 0x08
+#define PTE_U 0x10
+#define PTE_A 0x40
+#define PTE_D 0x80
 
 // Memory area for [@start, @end)
 typedef struct {

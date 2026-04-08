@@ -28,6 +28,7 @@ static inline int check_reg_idx(int idx) {
 #define CSRRS(imm, v, old_ptr) do { \
   word_t *p = NULL; \
   switch (imm) { \
+    case 0x180: p = &(cpu.csr.satp); break; \
     case 0x300: p = &(cpu.csr.mstatus); break; \
     case 0x305: p = &(cpu.csr.mtvec);   break; \
     case 0x341: p = &(cpu.csr.mepc);    break; \
@@ -41,6 +42,7 @@ static inline int check_reg_idx(int idx) {
 #define CSRRW(imm, v, old_ptr) do { \
   word_t *p = NULL; \
   switch (imm) { \
+    case 0x180: p = &(cpu.csr.satp); break; \
     case 0x300: p = &(cpu.csr.mstatus); break; \
     case 0x305: p = &(cpu.csr.mtvec);   break; \
     case 0x341: p = &(cpu.csr.mepc);    break; \
@@ -51,6 +53,21 @@ static inline int check_reg_idx(int idx) {
   *p = v; \
 } while (0)
 
+#define CSRRC(imm, v, old_ptr) do { \
+  word_t *p = NULL; \
+  switch (imm) { \
+    case 0x180: p = &(cpu.csr.satp); break; \
+    case 0x300: p = &(cpu.csr.mstatus); break; \
+    case 0x305: p = &(cpu.csr.mtvec);   break; \
+    case 0x341: p = &(cpu.csr.mepc);    break; \
+    case 0x342: p = &(cpu.csr.mcause);  break; \
+    default: panic("unsupported csr addr = 0x%03x", imm); \
+  } \
+  *old_ptr = *p; \
+  *p &= ~v; \
+} while (0)
+
+#define CSR_SATP cpu.csr.satp
 #define CSR_MSTATUS cpu.csr.mstatus
 #define CSR_MTVEC cpu.csr.mtvec
 #define CSR_MEPC cpu.csr.mepc
