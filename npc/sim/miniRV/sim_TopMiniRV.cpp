@@ -370,7 +370,7 @@ public:
             // %-4s  : 名称左对齐，占4位
             // 0x%08x: 16进制补0对齐，占8位
             // |     : 分隔符增加视觉可读性
-            printf("%-4s: 0x%08x  ", regs_name[i], top->gpr[i]);
+            printf("%-4s= 0x%08x  ", regs_name[i], top->gpr[i]);
             // 每 8 个寄存器换一行（8列打印通常比4列更适合终端宽度）
             if ((i + 1) % 8 == 0) {
                 printf("\n");
@@ -451,7 +451,8 @@ int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
     Vtop_TopMiniRV* top = new Vtop_TopMiniRV;
     Simlator cpu_sim(top, argc, argv);
-    // cpu_sim.run();
+    cpu_sim.run();
+    return -1; // 不可到达，除非仿真异常退出
     auto pc = 0x80000000;
     while(pc < 0x80000000 + 50 * 4) {
         uint32_t data = cpu_sim.get_paddr_read(pc, 4);

@@ -40,14 +40,18 @@ package defs_pkg;
     typedef enum logic [1:0] { 
         ALU_RES = 2'b00,
         MEM_LOAD = 2'b01,
-        PC_INC = 2'b10
+        PC_INC = 2'b10,
+        CSR = 2'b11
      } WB_sel_e;
 
     typedef enum logic [2:0] {
         PC_PLUS4  = 3'b000,
         PC_BRANCH = 3'b001,
         PC_JMP   = 3'b010,
-        PC_EXCEPT = 3'b011
+        PC_TRAP_ENT = 3'b011,
+        PC_TRAP_RET = 3'b100,
+        PC_DEBUG = 3'b101,
+        PC_VECTOR = 3'b110
     } PC_sel_e;
 
     typedef enum logic [3:0] { 
@@ -75,6 +79,16 @@ package defs_pkg;
         mem_sign_e      mem_sign;
         mem_size_e      mem_size;
     } Ctrl_sig_t; 
+
+    typedef struct packed {
+        logic [31:0] CSR_tvec;
+        logic [31:0] CSR_epc;
+        logic [31:0] CSR_mstatus;
+        logic [31:0] CSR_mcause;
+        logic [63:0] CSR_mcycle;
+        logic [31:0] CSR_mvendorid;
+        logic [31:0] CSR_marchid;
+    } CSR_bundle_out;
 
     // 添加默认内存初始化文件路径
     parameter string RAM_FILE_DEFAULT = "/home/passion/ysyx-workbench/am-kernels/tests/cpu-tests/build/fib-minirv-npc.hex";

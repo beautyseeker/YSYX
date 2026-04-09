@@ -16,8 +16,11 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
     logic [REG_ADDR_WIDTH-1:0] Rs1_addr, Rs2_addr, Rd_addr;
     logic [DATA_WIDTH-1:0] Rs1_data, Rs2_data, Rd_data;
     logic [DATA_WIDTH-1:0] alu_result;
+    logic ALU_zero;
     logic [DATA_WIDTH-1:0] mem_load_data;
     logic [DATA_WIDTH-1:0] imm_ext;
+    logic [DATA_WIDTH-1:0] CSR_reg;
+    CSR_bundle_out csr_bundle;
 
 
     Ctrl_sig_t ctrl_sig;
@@ -25,7 +28,13 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
     IFU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH), .RESET_VEC(RESET_VEC)) ifu (
         .clk(clk),
         .rst_n(rst_n),
-        .PC_next(PC_next),
+        .ctrl_sig(ctrl_sig),
+        .ALU_result(alu_result),
+        .ALU_zero(ALU_zero),
+        .PC_rel_imm(imm_ext),
+        .CSR_tvec(csr_bundle.CSR_tvec), // 由CSRFile提供
+        .CSR_epc(csr_bundle.CSR_epc), // 由CSRFile提供
+
         .PC_current(PC_current),
         .instruction(instruction),
         .exception(fetch_exception)
@@ -76,24 +85,16 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
         .ALU_result(alu_result)
     );
 
-    logic ALU_zero;
-    logic [DATA_WIDTH-1:0] PC_next;
-    logic [DATA_WIDTH-1:0] PCInc4;
-    logic is_jal;
-    assign is_jal = instruction[3]; // 区分无条件跳转JAL和JALR
-    assign PCInc4 = PC_current + 4;
-
-    always_comb begin
-        if(ctrl_sig.jmp_en)
-            case(ctrl_sig.PC_sel)
-                PC_PLUS4: PC_next = PCInc4;
-                PC_BRANCH: PC_next = ALU_zero ? PC_current + imm_ext : PCInc4; // 分支跳转
-                PC_JMP: PC_next = is_jal ? PC_current + imm_ext : alu_result & ~1; // 无条件跳转
-                default: PC_next = PCInc4;
-            endcase
-        else
-            PC_next = PCInc4; // 默认顺序执行
-    end
+    CSRFile #(.XLEN(DATA_WIDTH)) csrfile (
+        .clk(clk),
+        .rst_n(rst_n),
+        .csr_instruction(instruction),
+        .CSR_RS1(Rs1_data),
+        .CSR_imm(imm_ext),
+        .csr_write_en(ctrl_sig.WB_sel == CSR),
+        .csr_read_out(CSR_reg),
+        .csr_bundle_out(csr_bundle) // 输出整个CSR状态，便于调试
+    );
 
     LSU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH), .PMEM_BASE(RESET_VEC)) lsu (
         .clk(clk),
@@ -107,11 +108,14 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
         .load_data(mem_load_data),
         .mem_exception(fetch_exception)
     );
-    WBU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH)) wbu (
+
+
+    WBU #(.XLEN(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH)) wbu (
         .alu_result(alu_result),
         .mem_load_data(mem_load_data),
         .WB_sel(ctrl_sig.WB_sel),
         .PC_current(PC_current),
+        .CSR_data(CSR_reg),
         .WB_data(Rd_data)
     );
 endmodule

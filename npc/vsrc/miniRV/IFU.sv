@@ -6,14 +6,39 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
 (
     input logic                  clk,
     input logic                  rst_n,
-    input logic [DATA_WIDTH-1:0] PC_next,
+    input Ctrl_sig_t             ctrl_sig,
+    input logic [DATA_WIDTH-1:0] ALU_result,
+    input logic                  ALU_zero,
+    input logic [DATA_WIDTH-1:0] PC_rel_imm,
+    input logic [DATA_WIDTH-1:0] CSR_tvec,
+    input logic [DATA_WIDTH-1:0] CSR_epc,
 
     output logic [DATA_WIDTH-1:0] PC_current,
     output logic [DATA_WIDTH-1:0] instruction,
     output exception_t exception
 );
+
+    logic is_jal;
+    logic [DATA_WIDTH-1:0] PC_next;
+    logic [DATA_WIDTH-1:0] PCInc4;
+    assign PCInc4 = PC_current + 4;
+    assign is_jal = instruction[3];
+
+    always_comb begin : PC_next_sel
+        if(ctrl_sig.jmp_en)
+            case(ctrl_sig.PC_sel)
+                PC_PLUS4:   PC_next = PCInc4;
+                PC_BRANCH:  PC_next = ALU_zero ? PC_current + PC_rel_imm : PCInc4; // 分支跳转
+                PC_JMP:     PC_next = is_jal ? PC_current + PC_rel_imm : ALU_result & ~1; // 无条件跳转
+                PC_TRAP_ENT: PC_next = CSR_tvec;
+                PC_TRAP_RET: PC_next = CSR_epc;
+                default: PC_next = PCInc4;
+            endcase
+        else
+            PC_next = PCInc4; // 默认顺序执行
+    end
     // PC寄存器
-    always_ff @( posedge clk, negedge rst_n ) begin : PC_reg
+    always_ff @( posedge clk, negedge rst_n ) begin : PC_update
         if(!rst_n) begin
             PC_current <= RESET_VEC;
         end else begin

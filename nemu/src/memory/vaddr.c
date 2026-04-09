@@ -17,57 +17,13 @@
 #include <memory/paddr.h>
 
 word_t vaddr_ifetch(vaddr_t addr, int len) {
-  if (isa_mmu_check(addr, len, MEM_TYPE_IFETCH) == MMU_DIRECT) {
-    return paddr_read(addr, len);
-  } 
-  else if(isa_mmu_check(addr, len, MEM_TYPE_IFETCH) == MMU_TRANSLATE) {
-    paddr_t paddr = isa_mmu_translate(addr, len, MEM_TYPE_IFETCH);
-    if (paddr != MEM_RET_FAIL) {
-      return paddr_read(paddr, len);
-    } 
-    else {
-      panic("IFETCH at vaddr = " FMT_VADDR " failed in address translation", addr);
-    }
-  }
-  else {
-    panic("IFETCH at vaddr = " FMT_VADDR " is not supported in this NEMU version", addr);
-  }
   return paddr_read(addr, len);
 }
 
 word_t vaddr_read(vaddr_t addr, int len) {
-  if (isa_mmu_check(addr, len, MEM_TYPE_READ) == MMU_DIRECT) {
-    return paddr_read(addr, len);
-  } 
-  else if(isa_mmu_check(addr, len, MEM_TYPE_READ) == MMU_TRANSLATE) {
-    paddr_t paddr = isa_mmu_translate(addr, len, MEM_TYPE_READ);
-    if (paddr != MEM_RET_FAIL) {
-      return paddr_read(paddr, len);
-    } 
-    else {
-      panic("READ at vaddr = " FMT_VADDR " failed in address translation", addr);
-    }
-  }
-  else {
-    panic("READ at vaddr = " FMT_VADDR " is not supported in this NEMU version", addr);
-  }
   return paddr_read(addr, len);
 }
 
 void vaddr_write(vaddr_t addr, int len, word_t data) {
-  if (isa_mmu_check(addr, len, MEM_TYPE_WRITE) == MMU_DIRECT) {
-    paddr_write(addr, len, data);
-  } 
-  else if(isa_mmu_check(addr, len, MEM_TYPE_WRITE) == MMU_TRANSLATE) {
-    paddr_t paddr = isa_mmu_translate(addr, len, MEM_TYPE_WRITE);
-    if (paddr != MEM_RET_FAIL) {
-      paddr_write(paddr, len, data);
-    } 
-    else {
-      panic("WRITE at vaddr = " FMT_VADDR " failed in address translation", addr);
-    }
-  }
-  else {
-    panic("WRITE at vaddr = " FMT_VADDR " is not supported in this NEMU version", addr);
-  }
+  paddr_write(addr, len, data);
 }

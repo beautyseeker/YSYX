@@ -41,6 +41,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
     logic [11:0] immS;
     logic [12:0] immB;
     logic [19:0] immU;
+    logic [4:0]  immCSR;
     // 指令字段解析
     assign opcode   = inst[6:0];
     assign rd_addr  = inst[11:7];
@@ -55,7 +56,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
     assign immB = {inst[31], inst[7], inst[30:25], inst[11:8], 1'b0};
     assign immU = inst[31:12];
     assign immJ = {inst[31], inst[19:12], inst[20], inst[30:21], 1'b0};
-
+    assign immCSR = inst[19:15];
 
     always_comb begin : ImmGen
         case(opcode)
@@ -69,6 +70,8 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                 imm = {immU, {DATA_WIDTH-20{1'b0}}}; // U-type
             7'b1101111: 
                 imm = DATA_WIDTH'($signed(immJ)); // J-type
+            7'b1110011:
+                imm = {{DATA_WIDTH-5{1'b0}}, immCSR}; // SYSTEM
             default:
                 imm = {DATA_WIDTH{1'b0}};
         endcase
@@ -77,7 +80,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
     always_comb begin : CtrlGen
         ctrl_sig = DEFAULT_CTRL_SIG;
         case(opcode)
-            7'b0110011: begin // R-type
+            7'b0110011: begin : reg_op
                 ctrl_sig.reg_write_en = ENABLE;
                 case({funct7, funct3})
                     10'b0000000_000: ctrl_sig.ALU_op = ALU_ADD; // ADD
@@ -93,7 +96,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                     default:         ctrl_sig = 'x; // INVALID
                 endcase
             end
-            7'b0010011: begin // I-type (ALU immediate)
+            7'b0010011: begin : reg_imm_op
                 ctrl_sig.reg_write_en = ENABLE;
                 ctrl_sig.ALU_b_src_sel = B_SRC_IMM;
                 case(funct3)
@@ -108,7 +111,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                     default:ctrl_sig = 'x; // INVALID
                 endcase
             end
-            7'b0000011: begin // I-type (load)
+            7'b0000011: begin : mem_load
                 ctrl_sig.reg_write_en = ENABLE;
                 ctrl_sig.mem_read_en = ENABLE;
                 ctrl_sig.WB_sel = MEM_LOAD;
@@ -126,7 +129,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                         begin ctrl_sig = 'x; end // INVALID
                 endcase
             end
-            7'b1100111: begin // I-type (JALR)
+            7'b1100111: begin : non_conditional_short_jmp_JALR
                 ctrl_sig.reg_write_en = ENABLE;
                 ctrl_sig.WB_sel = PC_INC;
                 ctrl_sig.jmp_en = ENABLE;
@@ -134,7 +137,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                 ctrl_sig.ALU_b_src_sel = B_SRC_IMM;
                 ctrl_sig.ALU_op = ALU_ADD;  // JALR需要用到ALU来计算目标地址
             end
-            7'b0100011: begin // S-type (store)
+            7'b0100011: begin : mem_store
                 ctrl_sig.mem_write_en = ENABLE;
                 ctrl_sig.ALU_b_src_sel = B_SRC_IMM; // imm
                 ctrl_sig.ALU_op = ALU_ADD; // ADD for address calculation
@@ -145,7 +148,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                     default: ctrl_sig = 'x; // INVALID
                 endcase
             end
-            7'b1100011: begin // B-type (branch)
+            7'b1100011: begin : conditional_jmp
                 ctrl_sig.jmp_en = ENABLE;
                 ctrl_sig.PC_sel = PC_BRANCH;
                 case(funct3)
@@ -158,29 +161,46 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                     default:ctrl_sig = 'x; // INVALID
                 endcase
             end
-            7'b0110111: begin // U-type (LUI)
+            7'b0110111: begin : LUI
                 ctrl_sig.reg_write_en = ENABLE;
                 ctrl_sig.ALU_b_src_sel = B_SRC_IMM; // imm
                 ctrl_sig.ALU_op = ALU_COPY_B; // 直接透传立即数
             end
-            7'b0010111: begin // U-type (AUIPC)
+            7'b0010111: begin : AUIPC
                 ctrl_sig.reg_write_en = ENABLE;
                 ctrl_sig.ALU_a_src_sel = A_SRC_PC;
                 ctrl_sig.ALU_b_src_sel = B_SRC_IMM;
                 ctrl_sig.ALU_op = ALU_ADD;
             end
-            7'b1101111: begin // J-type (JAL)
+            7'b1101111: begin : non_conditional_long_jmp_JAL
                 ctrl_sig.reg_write_en = ENABLE;
                 ctrl_sig.WB_sel = PC_INC;
                 ctrl_sig.jmp_en = ENABLE;
                 ctrl_sig.PC_sel = PC_JMP;
             end
 
-            7'b1110011: begin // SYSTEM (ECALL/EBREAK)
-                //此处将调用DPI-C函数来处理系统调用实现停机
-                $display("ECALL/EBREAK encountered at time %t. Simulation will stop.", $time);
-                handle_sys_brk(); // 调用DPI-C函数处理系统调用
-                $finish; // 直接结束仿真
+            7'b1110011: begin : SYSTEM
+                case(funct3)
+                    3'b000: begin // ECALL or EBREAK
+                        ctrl_sig.PC_sel = PC_TRAP_ENT;
+                        if (inst == 32'h00000073) begin // ECALL
+                            $display("ECALL encountered at time %t. Simulation will stop.", $time);
+                            handle_sys_brk(); // 调用DPI-C函数处理系统调用
+                        end else if (inst == 32'h00100073) begin // EBREAK
+                            $display("EBREAK encountered at time %t. Simulation will stop.", $time);
+                            handle_sys_brk();
+                            $finish;
+                        end else begin
+                            ctrl_sig = 'x; // INVALID SYSTEM instruction
+                        end
+                    end
+                    3'b001, 3'b010, 3'b011, 3'b101, 3'b110, 3'b111: begin 
+                        ctrl_sig.reg_write_en = ENABLE;
+                        ctrl_sig.WB_sel = CSR;
+                    end
+                    default: ctrl_sig = 'x; // INVALID SYSTEM instruction (CSR instructions not implemented)
+                endcase
+
             end
             default: begin
                 ctrl_sig = 'x; // INVALID instruction
