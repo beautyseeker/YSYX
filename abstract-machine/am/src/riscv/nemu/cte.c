@@ -72,8 +72,35 @@ void yield() {
 }
 
 bool ienabled() {
-  return false;
+#ifdef __riscv_e
+  uint64_t mstatus;
+  asm volatile("csrr %0, mstatus" : "=r"(mstatus));
+  return (mstatus & 0x8) != 0; // MIE 位
+#else
+  uint64_t mstatus;
+  asm volatile("csrr %0, mstatus" : "=r"(mstatus));
+  return (mstatus & 0x8) != 0; // MIE 位
+#endif
 }
 
 void iset(bool enable) {
+#ifdef __riscv_e
+  uint64_t mstatus;
+  asm volatile("csrr %0, mstatus" : "=r"(mstatus));
+  if (enable) {
+    mstatus |= 0x8; // 设置 MIE 位
+  } else {
+    mstatus &= ~0x8; // 清除 MIE 位
+  }
+  asm volatile("csrw mstatus, %0" : : "r"(mstatus));
+#else
+  uint64_t mstatus;
+  asm volatile("csrr %0, mstatus" : "=r"(mstatus));
+  if (enable) {
+    mstatus |= 0x8; // 设置 MIE 位
+  } else {
+    mstatus &= ~0x8; // 清除 MIE 位
+  }
+  asm volatile("csrw mstatus, %0" : : "r"(mstatus));
+#endif
 }
