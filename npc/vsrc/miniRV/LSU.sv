@@ -5,7 +5,7 @@ import "DPI-C" function longint unsigned mmio_read(input int unsigned addr);
 import "DPI-C" function void mmio_write(input int unsigned addr, input int data, input byte wmask);
 import "DPI-C" function void register_pmem_args(input int unsigned mem_head[], input int unsigned mem_size, input int unsigned mem_base);
 
-module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_0000)
+module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_0000)
 // RAM地址空间32bit * 2^18 = 1MB,访存地址4字节对齐
 (
     input logic                  clk,
@@ -18,7 +18,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, PMEM_BASE = 32'h8000_00
     input logic                  mem_read_en,
 
     output logic [DATA_WIDTH-1:0] load_data,
-    output exception_t            mem_exception
+    output except_cause            mem_exception
 );
 
     localparam BYTES_PER_WORD = DATA_WIDTH / 8;

@@ -4,9 +4,12 @@ module CSRFile #(parameter XLEN=32)
 (
     input logic clk,
     input logic rst_n,
+    input Ctrl_sig_t ctrl_sig,
     input logic [XLEN-1:0] csr_instruction,
     input logic [XLEN-1:0] CSR_RS1,
     input logic [XLEN-1:0] CSR_imm,
+    input logic [XLEN-1:0] PC_current,
+    input logic [XLEN-1:0] EXCPT_code,
     input logic csr_write_en,
 
     output logic [XLEN-1:0] csr_read_out,
@@ -37,6 +40,18 @@ module CSRFile #(parameter XLEN=32)
     assign CSR_op = csr_instruction[14:12];
     assign csr_addr = csr_instruction[31:20];
     assign CSR_old = csr_read_out;
+
+    `define DUMP_CSR(name) \
+        $display("%-10s = 0x%h", `"name`", name);
+
+    function void dump_all();
+        `DUMP_CSR(mstatus)
+        `DUMP_CSR(mtvec)
+        `DUMP_CSR(mepc)
+        `DUMP_CSR(mcause)
+        $display("-------------PC:0x%08h instruction = 0x%08h-------------", 
+        PC_current, csr_instruction);
+    endfunction
 
     always_comb begin : CSR_ALU
         case(CSR_op)
@@ -82,18 +97,32 @@ module CSRFile #(parameter XLEN=32)
     always_ff @(posedge clk or negedge rst_n) begin : CSR_write
         if (!rst_n) begin
             {mstatus, mtvec, mepc, mcause} <= '0;
-        end 
-        else if (csr_write_en) begin
-            case (csr_addr)
-                CSR_MSTATUS: mstatus <= CSR_new;
-                CSR_MTVEC:   mtvec   <= CSR_new;
-                CSR_MEPC:    mepc    <= CSR_new;
-                CSR_MCAUSE:  mcause  <= CSR_new;
-                default: /* 不应该发生，忽略写入 */ ;
-            endcase
-            assert (csr_addr inside {CSR_MSTATUS, CSR_MTVEC, CSR_MEPC, CSR_MCAUSE})
-            else $error("Invalid CSR address for write: %0h at time %t", csr_addr, $time);
         end
+        else begin
+            if(ctrl_sig.PC_sel == PC_TRAP_ENT) begin : internal_trap
+                mepc <= PC_current; // 保存异常发生时的PC
+                mcause <= EXCPT_code; // 保存异常原因
+                mstatus[7] <= mstatus[3]; // 将MIE位保存到MPIE
+                mstatus <= mstatus & ~32'h8; // 设置MIE位为0关闭中断，屏蔽后续非高优先级中断
+                // dump_all();
+                // $display("hard trap occurred at PC=0x%08h with cause=0x%08h\n", PC_current, EXCPT_code);
+            end 
+            else if (ctrl_sig.PC_sel == PC_TRAP_RET) begin
+                mstatus[3] <= mstatus[7]; // 恢复MIE位
+                mstatus <= mstatus | 32'h8; // 恢复MIE位开中断，返回正常执行
+            end
+            else if (csr_write_en) begin : CSR_inst_write
+                case (csr_addr)
+                    CSR_MSTATUS: mstatus <= CSR_new;
+                    CSR_MTVEC:   mtvec   <= CSR_new;
+                    CSR_MEPC:    mepc    <= CSR_new;
+                    CSR_MCAUSE:  mcause  <= CSR_new;
+                    default: /* 不应该发生，忽略写入 */ ;
+                endcase
+                // dump_all();
+                // $display("CSR write: addr=0x%03h data=0x%08h\n", csr_addr, CSR_new);    
+            end
+        end 
     end
 
     always_ff @(posedge clk or negedge rst_n ) begin : cycle_counter

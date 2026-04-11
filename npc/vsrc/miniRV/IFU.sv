@@ -15,7 +15,7 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
 
     output logic [DATA_WIDTH-1:0] PC_current,
     output logic [DATA_WIDTH-1:0] instruction,
-    output exception_t exception
+    output except_cause            IF_exception
 );
 
     logic is_jal;
@@ -69,11 +69,11 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
         if(fetch_exception) begin
             word_idx = 0;
             instruction = 32'h00000013; // NOP指令
-            exception = EXC_INST_MISALIGNED;
+            IF_exception = EXC_INST_MISALIGNED;
         end else begin
             word_idx = mapped_addr[ADDR_WIDTH-1:ALIGNED_WIDTH]; // 4字节对齐地址
             instruction = ROM[word_idx];
-            exception = EXC_NONE;
+            IF_exception = EXC_NONE;
         end
     end
 

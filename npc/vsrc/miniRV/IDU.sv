@@ -14,7 +14,8 @@ module IDU #(parameter DATA_WIDTH = 32)
 
     // 控制信号输出
     output logic [DATA_WIDTH-1:0] imm, // 经过扩展的最终立即数
-    output Ctrl_sig_t ctrl_sig
+    output Ctrl_sig_t ctrl_sig,
+    output except_cause ID_exception
 );
 
 localparam logic ENABLE = 1'b1;
@@ -79,6 +80,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
 
     always_comb begin : CtrlGen
         ctrl_sig = DEFAULT_CTRL_SIG;
+        ID_exception = EXC_NONE;
         case(opcode)
             7'b0110011: begin : reg_op
                 ctrl_sig.reg_write_en = ENABLE;
@@ -182,15 +184,20 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
             7'b1110011: begin : SYSTEM
                 case(funct3)
                     3'b000: begin // ECALL or EBREAK
-                        ctrl_sig.PC_sel = PC_TRAP_ENT;
                         if (inst == 32'h00000073) begin // ECALL
-                            $display("ECALL encountered at time %t. Simulation will stop.", $time);
-                            handle_sys_brk(); // 调用DPI-C函数处理系统调用
+                            ctrl_sig.PC_sel = PC_TRAP_ENT;
+                            ctrl_sig.jmp_en = ENABLE;
+                            ID_exception = EXC_ECALL_M;
                         end else if (inst == 32'h00100073) begin // EBREAK
                             $display("EBREAK encountered at time %t. Simulation will stop.", $time);
                             handle_sys_brk();
                             $finish;
-                        end else begin
+                        end
+                            else if(inst == 32'h00200073) begin // MRET
+                                ctrl_sig.jmp_en = ENABLE;
+                                ctrl_sig.PC_sel = PC_TRAP_RET;
+                            end
+                        else begin
                             ctrl_sig = 'x; // INVALID SYSTEM instruction
                         end
                     end

@@ -1,7 +1,7 @@
 // `include "defs_pkg.sv"
 import defs_pkg::*;
 
-module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 32, RESET_VEC = 32'h8000_0000)
+module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 32, RESET_VEC = 32'h8000_0000)
 (
     input logic                  clk,
     input logic                  rst_n,
@@ -9,7 +9,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
     output logic [DATA_WIDTH-1:0] PC_current,
     output logic [DATA_WIDTH-1:0] instruction,
     output logic [DATA_WIDTH-1:0] gpr [REG_COUNT-1:0], // 输出整个寄存器文件状态，便于调试
-    output exception_t            fetch_exception
+    output CSR_bundle_out csr_bundle
 );
     // 模块实例化
     localparam REG_ADDR_WIDTH = $clog2(REG_COUNT); // 寄存器地址宽度，根据寄存器数量计算
@@ -20,10 +20,25 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
     logic [DATA_WIDTH-1:0] mem_load_data;
     logic [DATA_WIDTH-1:0] imm_ext;
     logic [DATA_WIDTH-1:0] CSR_reg;
-    CSR_bundle_out csr_bundle;
 
 
     Ctrl_sig_t ctrl_sig;
+    except_cause if_exception, id_exception, ex_exception, mem_exception, exception;
+    always_comb begin : exception_arbiter
+        // 简单的优先级仲裁：IF > ID > EX > MEM
+        if (if_exception != EXC_NONE) begin
+            exception = if_exception;
+        end else if (id_exception != EXC_NONE) begin
+            exception = id_exception;
+        end else if (ex_exception != EXC_NONE) begin
+            exception = ex_exception;
+        end else if (mem_exception != EXC_NONE) begin
+            exception = mem_exception;
+        end else begin
+            exception = EXC_NONE;
+        end
+        
+    end
 
     IFU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH), .RESET_VEC(RESET_VEC)) ifu (
         .clk(clk),
@@ -37,7 +52,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
 
         .PC_current(PC_current),
         .instruction(instruction),
-        .exception(fetch_exception)
+        .IF_exception(if_exception)
     );
 
     IDU #(.DATA_WIDTH(DATA_WIDTH)) idu (
@@ -46,7 +61,8 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
         .rs2_addr(Rs2_addr),
         .rd_addr(Rd_addr),
         .imm(imm_ext),
-        .ctrl_sig(ctrl_sig)
+        .ctrl_sig(ctrl_sig),
+        .ID_exception(id_exception)
     );
 
     RegisterFile #(.DATA_WIDTH(DATA_WIDTH), .REG_COUNT(REG_COUNT)) regfile (
@@ -59,7 +75,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
         .rs2_data(Rs2_data),
         .write_data(Rd_data),
         .reg_write_en(ctrl_sig.reg_write_en),
-        .gpr(gpr) // 输出整个寄存器文件状态，便于调试
+        .gpr(gpr)
     );
 
     logic [DATA_WIDTH-1:0] alu_b;
@@ -88,12 +104,15 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
     CSRFile #(.XLEN(DATA_WIDTH)) csrfile (
         .clk(clk),
         .rst_n(rst_n),
+        .ctrl_sig(ctrl_sig),
         .csr_instruction(instruction),
+        .PC_current(PC_current),
+        .EXCPT_code(exception),
         .CSR_RS1(Rs1_data),
         .CSR_imm(imm_ext),
-        .csr_write_en(ctrl_sig.WB_sel == CSR),
+        .csr_write_en(ctrl_sig.WB_sel == CSR && ctrl_sig.reg_write_en),
         .csr_read_out(CSR_reg),
-        .csr_bundle_out(csr_bundle) // 输出整个CSR状态，便于调试
+        .csr_bundle_out(csr_bundle)
     );
 
     LSU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH), .PMEM_BASE(RESET_VEC)) lsu (
@@ -106,7 +125,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 25, REG_COUNT = 3
         .mem_write_en(ctrl_sig.mem_write_en),
         .mem_read_en(ctrl_sig.mem_read_en),
         .load_data(mem_load_data),
-        .mem_exception(fetch_exception)
+        .mem_exception(mem_exception)
     );
 
 

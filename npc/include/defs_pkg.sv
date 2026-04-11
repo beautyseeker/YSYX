@@ -54,16 +54,30 @@ package defs_pkg;
         PC_VECTOR = 3'b110
     } PC_sel_e;
 
-    typedef enum logic [3:0] { 
-        EXC_INST_MISALIGNED = 4'd0,
-        EXC_INST_FAULT      = 4'd1,
-        EXC_ILLEGAL_INST    = 4'd2,
-        EXC_BREAKPOINT      = 4'd3,
-        EXC_ACCESS_MISALIGNED = 4'd4,
-        EXC_ACCESS_OUT_OF_RANGE = 4'd5,
-        EXC_ECALL_M         = 4'd11,
-        EXC_NONE            = 4'd15  // 自定义：无异常
-    } exception_t;
+    typedef enum logic [31:0] { 
+        EXC_INST_MISALIGNED = 32'd0,
+        EXC_INST_FAULT      = 32'd1,
+        EXC_ILLEGAL_INST    = 32'd2,
+        EXC_BREAKPOINT      = 32'd3,
+        EXC_ACCESS_MISALIGNED = 32'd4,
+        EXC_ACCESS_OUT_OF_RANGE = 32'd5,
+        EXC_STORE_MISALIGNED = 32'd6,
+        EXC_STORE_OUT_OF_RANGE = 32'd7,
+        EXC_ECALL_U         = 32'd8,
+        EXC_ECALL_S         = 32'd9,
+        EXC_ECALL_M         = 32'd11,
+        EXC_INST_PAGE_FAULT     = 32'd12,
+        EXC_LOAD_PAGE_FAULT     = 32'd13,
+        EXC_STORE_PAGE_FAULT    = 32'd15,
+        EXC_NONE            = 32'd16,  // 自定义：无异常
+
+        EXC_S_SOFT_INT = 32'h80000001,
+        EXC_M_SOFT_INT = 32'h80000003,
+        EXC_S_TIMER_INT = 32'h80000005,
+        EXC_M_TIMER_INT = 32'h80000007,
+        EXC_S_EXT_INT = 32'h80000009,
+        EXC_M_EXT_INT = 32'h8000000B
+    } except_cause;
 
     // 2. 最后定义引用了上述类型的结构体
     typedef struct packed {
