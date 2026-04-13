@@ -5,13 +5,27 @@
 static Context* (*user_handler)(Event, Context*) = NULL;
 
 Context* __am_irq_handle(Context *c) {
+  // printf("Handling IRQ: mcause=%d, mepc=%p\n", c->mcause, c->mepc);
   if (user_handler) {
     Event ev = {0};
     switch (c->mcause) {
+      case 11: 
+        if (c->GPR1 == -1) {
+          ev.event = EVENT_YIELD;
+        } else {
+          ev.event = EVENT_SYSCALL;
+        }
+        c->mepc += 4; 
+        break;
+
+      case 0x80000007: // 硬件：机器模式计时器中断 (M-mode Timer Interrupt)
+        ev.event = EVENT_IRQ_TIMER;
+        break;
       default: ev.event = EVENT_ERROR; break;
     }
 
     c = user_handler(ev, c);
+    // printf("Returned from user_handler: mepc=%p\n", c->mepc);
     assert(c != NULL);
   }
 

@@ -193,7 +193,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                             handle_sys_brk();
                             $finish;
                         end
-                            else if(inst == 32'h00200073) begin // MRET
+                            else if(inst == 32'h30200073) begin // MRET
                                 ctrl_sig.jmp_en = ENABLE;
                                 ctrl_sig.PC_sel = PC_TRAP_RET;
                             end

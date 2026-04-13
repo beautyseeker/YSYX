@@ -13,6 +13,7 @@ static void print_etrace(Context *c, Event ev) {
 }
 
 Context* __am_irq_handle(Context *c) {
+  // printf("Handling IRQ: mcause=%d, mepc=0x%p\n", c->mcause, c->mepc);
   if (user_handler) {
     Event ev = {0};
     switch (c->mcause) {
@@ -32,6 +33,7 @@ Context* __am_irq_handle(Context *c) {
     }
 
     c = user_handler(ev, c);
+    // printf("Returned from user_handler: mepc=%p\n", c->mepc);
     assert(c != NULL);
   }
 
