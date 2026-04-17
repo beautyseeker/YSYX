@@ -20,6 +20,8 @@
  */
 #include <regex.h>
 #include <stdbool.h>
+#include <memory/vaddr.h>
+
 
 enum {
   TK_NOTYPE = 256, 
@@ -81,7 +83,7 @@ static int find_main_op(int p, int q);
 static bool check_parentheses(int p, int q); 
 static int32_t eval(int p, int q, bool *success);
 extern word_t isa_reg_str2val(const char *s, bool *success);
-extern word_t paddr_read(paddr_t addr, int len);
+extern word_t vaddr_read(vaddr_t addr, int len);
 
 
 /* Rules are used for many times.
@@ -222,7 +224,7 @@ int32_t eval(int p, int q, bool *success) {
           return *success ? - eval(p + 1, q, success): 0;
         case TK_DEREF: {
           word_t addr = *success ? eval(p + 1, q, success) : 0;
-          return *success ? paddr_read(addr, 4) : 0;
+          return *success ? vaddr_read(addr, 4) : 0;
         }
         default: break;
       }

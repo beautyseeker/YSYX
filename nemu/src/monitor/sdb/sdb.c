@@ -19,7 +19,7 @@
 #include <readline/history.h>
 #include "sdb.h"
 #include <utils.h>
-#include <memory/paddr.h>
+#include <memory/vaddr.h>
 
 static int is_batch_mode = false;
 
@@ -99,7 +99,7 @@ static int cmd_si(char *args){
 
 static int cmd_info(char *args) {
   if(args == NULL) {
-    printf("Usage: info r/w\n");
+    printf("Usage: info r/w/i\n");
     return 0;
   }
   if(strcmp(args, "r") == 0) {
@@ -142,7 +142,7 @@ static int cmd_x(char *args) {
     return 0;
   }
   for(int i = 0; i < N; i++) {
-    word_t data = paddr_read(addr + i * 4, 4);
+    word_t data = vaddr_read(addr + i * 4, 4);
     printf(FMT_PADDR ": " FMT_WORD "\n", addr + i *4, data);
   }
   return 0;
@@ -251,7 +251,7 @@ static struct {
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
   {"si", "Step through N instructions", cmd_si },
-  {"info", "Display register or watchpoint information", cmd_info },
+  {"info", "Display register, watchpoint information, ring buffer", cmd_info },
   {"x", "Examine memory: x N EXPR", cmd_x },
   {"p", "Evaluate expression: p EXPR", cmd_expr },
   {"w", "Set a watchpoint for an expression", cmd_w },

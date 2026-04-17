@@ -69,6 +69,12 @@ static long load_img() {
 }
 
 static int parse_args(int argc, char *argv[]) {
+  // Nemu程序传参解析函数，支持以下参数：
+  // -b, --batch              以批处理模式运行
+  // -l, --log=FILE           输出日志到FILE
+  // -d, --diff=REF_SO        与参考设计REF_SO进行差分测试
+  // -p, --port=PORT          与端口PORT进行差分测试
+  // -e, --elf=ELF_FILE       加载ELF_FILE作为程序
   const struct option table[] = {
     {"batch"    , no_argument      , NULL, 'b'},
     {"log"      , required_argument, NULL, 'l'},
