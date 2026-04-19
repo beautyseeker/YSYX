@@ -51,6 +51,8 @@ $(SRC_AUTO_BIND): $(NXDC_FILES)
 VSRCS = $(abspath ./include/defs_pkg.sv) $(shell find $(abspath $(VSRCS_DIR)) -name "*.v" -o -name "*.sv")
 CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*.cpp")
 override CSRCS += $(SRC_AUTO_BIND)
+SDB_SRCS = $(shell find $(abspath ./sim/miniRV) -name "*.c" -or -name "*.cpp")
+
 
 CPP_TB := $(if $(wildcard $(SIM_DIR)/sim_$(MODULE).cpp),\
               $(SIM_DIR)/sim_$(MODULE).cpp,\
@@ -60,7 +62,7 @@ CPP_TB := $(if $(wildcard $(SIM_DIR)/sim_$(MODULE).cpp),\
 # rules for NVBoard
 include $(NVBOARD_HOME)/scripts/nvboard.mk
 
-INC_PATH += $(NEMU_HOME)/include
+INC_PATH += /home/passion/ysyx-workbench/npc/sim/miniRV/include $(NEMU_HOME)/include/generated/
 # rules for verilator
 INCFLAGS = $(addprefix -I, $(INC_PATH))
 
@@ -70,10 +72,9 @@ INCFLAGS = $(addprefix -I, $(INC_PATH))
 CYCLES ?= 10000
 CXXFLAGS += $(INCFLAGS) -DTOP_NAME=V$(TOPNAME) -DTOP_HEADER="\"V$(TOPNAME).h\""
 CXXFLAGS += -g -DSIM_CYCLES=$(CYCLES)
-LDFLAGS += -lcapstone
+LDFLAGS += -lcapstone -lreadline -lhistory
 
 $(BOARD_BIN): $(VSRCS) $(CSRCS) $(NVBOARD_ARCHIVE)
-	@rm -rf $(OBJ_DIR)
 	$(VERILATOR) $(VERILATOR_CFLAGS) \
 		--top-module $(TOPNAME) $^ \
 		$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
@@ -81,9 +82,8 @@ $(BOARD_BIN): $(VSRCS) $(CSRCS) $(NVBOARD_ARCHIVE)
 
 
 $(SIM_BIN): $(VSRCS) $(CPP_TB)
-	@rm -rf $(OBJ_DIR)/sim_trace
 	$(VERILATOR) $(VERILATOR_CFLAGS) --top-module $(TOPNAME) \
-	--Mdir $(OBJ_DIR)/sim_trace --exe $(CPP_TB) \
+	--Mdir $(OBJ_DIR)/sim_trace --exe $(CPP_TB) $(SDB_SRCS) \
 	$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
 	-o $(abspath $(SIM_BIN)) $^
 

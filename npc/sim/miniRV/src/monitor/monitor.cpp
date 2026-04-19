@@ -1,5 +1,6 @@
-#include <isa.h>
-#include <memory/paddr.h>
+#include <getopt.h>
+#include "monitor.h"
+
 
 void init_rand();
 void init_log(const char *log_file);
@@ -8,7 +9,9 @@ void init_difftest(char *ref_so_file, long img_size, int port);
 void init_device();
 void init_sdb();
 void init_disasm();
-extern void init_elf(const char *filename);
+void init_elf(const char *filename);
+void sdb_mainloop();
+
 
 static void welcome() {
   Log("Trace: %s", MUXDEF(CONFIG_TRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
@@ -20,8 +23,35 @@ static void welcome() {
   printf("For help, type \"help\"\n");
 }
 
-#ifndef CONFIG_TARGET_AM
-#include <getopt.h>
+void print_statistic(Simlator* cpu) {
+    SIMLOG("---------------------Simulation end statistics-------------------------");
+    auto stat = cpu->get_statistic();
+    extern uint64_t get_uptime();
+    if (stat->inst_nr > 0 && stat->cycle_nr > 0) {
+        uint64_t sim_time_us = get_uptime();
+        SIMLOG("%s Simulation time: %.3f ms MIPS: %.6f", 
+        cpu->get_img_name(), sim_time_us / 1000.0, 
+        float(stat->inst_nr) / sim_time_us);
+        SIMLOG("Cycles executed:%lu Instructions executed:%lu CPI: %.2f", 
+            stat->cycle_nr, stat->inst_nr,
+            (double)stat->cycle_nr / stat->inst_nr);
+    }
+    SIMLOG("-----------------------------------------------------------------------");
+    exit(0);
+}
+
+void print_trap_state(Simlator* cpu, int state) {
+  auto stat = cpu->get_statistic();
+    if(state == 0) {
+        printf(ANSI_FMT("HIT A GOOD TRAP!\n", ANSI_FG_GREEN));
+        cpu->set_state(SimState::END);
+    } else {
+        printf(ANSI_FMT("[%ld]\nHIT A BAD TRAP!\n", ANSI_FG_RED), 
+        stat->inst_nr);
+        cpu->set_state(SimState::ABORT);
+    }
+}
+
 
 void sdb_set_batch_mode();
 
@@ -46,8 +76,8 @@ static long load_img() {
   Log("The image is %s, size = %ld", img_file, size);
 
   fseek(fp, 0, SEEK_SET);
-  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);
-  assert(ret == 1);
+  // int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);
+  // assert(ret == 1);
 
   fclose(fp);
   return size;
@@ -122,22 +152,7 @@ void init_monitor(int argc, char *argv[]) {
 
   /* Display welcome message. */
   welcome();
-}
-#else // CONFIG_TARGET_AM
-static long load_img() {
-  extern char bin_start, bin_end;
-  size_t size = &bin_end - &bin_start;
-  Log("img size = %ld", size);
-  memcpy(guest_to_host(RESET_VECTOR), &bin_start, size);
-  return size;
+
+  sdb_mainloop();
 }
 
-void am_init_monitor() {
-  init_rand();
-  init_mem();
-  init_isa();
-  load_img();
-  IFDEF(CONFIG_DEVICE, init_device());
-  welcome();
-}
-#endif

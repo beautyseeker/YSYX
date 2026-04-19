@@ -1,0 +1,127 @@
+#ifndef __SIMULATOR_HPP__
+#define __SIMULATOR_HPP__
+
+#include "Vtop_TopMiniRV.h"
+#include "isa.h"
+#include <string>
+
+// 仿真状态定义（保持与 SDB 同步）
+enum SimState { RUNNING, STOP, ABORT, QUIT, END };
+
+
+struct CPU_Statistic
+{
+    uint64_t cycle_nr;
+    uint64_t inst_nr;
+    uint64_t boot_time;
+    uint64_t branch_cnt;
+    uint64_t branch_miss;
+    uint64_t jump_cnt;
+    uint64_t load_cnt;
+    uint64_t store_cnt;
+    uint64_t ecall_cnt;
+    uint64_t ebreak_cnt;
+    uint64_t csr_cnt;
+    uint64_t illegal_cnt;
+
+    bool reset() {
+        cycle_nr = 0;
+        inst_nr = 0;
+        boot_time = 0;
+        branch_cnt = 0;
+        branch_miss = 0;
+        jump_cnt = 0;
+        load_cnt = 0;
+        store_cnt = 0;
+        ecall_cnt = 0;
+        ebreak_cnt = 0;
+        csr_cnt = 0;
+        illegal_cnt = 0;
+        return true;
+    }
+};
+
+struct CPU_Config {
+    std::string img_path;
+    std::string vcd_path;
+    int cycle_max = 0;
+    uint64_t load_inst_num = 0;
+
+    // 标记为 inline，告诉编译器这是允许在多处定义的
+    inline void parse(int argc, char **argv) {
+        for (int i = 1; i < argc; ++i) {
+            if (strncmp(argv[i], "IMG=", 4) == 0) {
+                img_path = argv[i] + 4;
+            } else if (strncmp(argv[i], "CYCLES=", 7) == 0) {
+                cycle_max = atoi(argv[i] + 7);
+            } else if (strncmp(argv[i], "VCD=", 4) == 0) {
+                vcd_path = argv[i] + 4;
+            }
+        }
+
+    }
+
+    inline const char* get_filename() const {
+        const char* filename = strrchr(img_path.c_str(), '/');
+        printf("Extracting filename from path: %s\n", img_path.c_str());
+        if (filename) {
+            printf("Extracted filename: %s\n", filename + 1);
+            return filename + 1; // 返回文件名部分
+        } else {
+            printf("No path separator found, using entire string as filename: %s\n", img_path.c_str());
+            return img_path.c_str(); // 如果没有路径分隔符，直接返回输入字符串
+        }
+    }
+
+};
+
+
+class Simlator {
+private:
+    // 1. 硬件实体：仅包含 Verilator 生成的顶层对象
+    Vtop_TopMiniRV* top;
+
+    // 2. 内部仿真计数器
+    CPU_Statistic* statistic;
+    CPU_Config* config;
+    SimState sim_state;
+
+public:
+    // 单例模式，方便 Bridge 层访问
+    static Simlator* instance;
+
+    Simlator(Vtop_TopMiniRV* DUT, int argc, char **argv);
+    ~Simlator();
+
+    // --- 仿真初始化接口 ---
+    // 构造函数中完成仿真环境的初始化，包括加载镜像、设置初始状态等
+    bool load_rom(const char* rom_path);
+    bool load_ram(const char* ram_path);
+
+    // --- 核心驱动接口 ---
+    void clock_step(uint64_t n);      // 推动时钟翻转 n 次
+    void execute(uint64_t n);         // 执行 n 条指令（考虑指令提交信号）
+    bool reset();
+    void run();
+
+    // --- 硬件状态访问接口 (Getter) ---
+    // 这些接口供 Bridge 层调用，从而间接服务于 SDB 和 Trace
+    vaddr_t get_pc() const { return top->PC_current; }
+    word_t get_inst() const { return top->instruction; }
+    word_t get_gpr(int idx) const;
+    word_t get_gpr(const char *name) const;
+    
+    // --- 内存访问接口 ---
+    // 供 SDB 扫描内存或 DiffTest 使用
+    word_t mem_read(vaddr_t addr, int len);
+    void mem_write(vaddr_t addr, int len, word_t data);
+
+    // --- 仿真控制接口 ---
+    SimState get_state() const { return sim_state; }
+    void set_state(SimState s) { sim_state = s; }
+    CPU_Statistic* get_statistic() const { return statistic; }
+    const char* get_img_name() const { return config->get_filename(); }
+    const char* get_img_path() const { return config->img_path.c_str(); }
+};
+
+#endif

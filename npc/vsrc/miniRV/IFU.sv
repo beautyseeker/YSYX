@@ -51,7 +51,7 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
     localparam ROM_DEPTH = 1 << (ADDR_WIDTH - ALIGNED_WIDTH); 
     logic [DATA_WIDTH-1:0] ROM [0:ROM_DEPTH-1];
     initial begin
-        static string path = get_img_path();
+        string path = get_img_path();
         if (path == "") begin
             path = ROM_FILE_DEFAULT;
         end
