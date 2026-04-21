@@ -3,7 +3,6 @@ import defs_pkg::*;
 import "DPI-C" function void handle_mem_access_error(input int unsigned addr, input int unsigned mapped_addr);
 import "DPI-C" function longint unsigned mmio_read(input int unsigned addr);
 import "DPI-C" function void mmio_write(input int unsigned addr, input int data, input byte wmask);
-import "DPI-C" function void register_pmem_args(input int unsigned mem_head[], input int unsigned mem_size, input int unsigned mem_base);
 
 module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_0000)
 // RAM地址空间32bit * 2^18 = 1MB,访存地址4字节对齐
@@ -139,10 +138,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_00
         if (path == "") begin
             path = RAM_FILE_DEFAULT;
         end
-        $display("RAM initialized from: %s", path);
         $readmemh(path, MEM);
-        // 硬件启动瞬间，把 MEM 的首地址发给 C++
-        register_pmem_args(MEM, PMEM_SIZE, PMEM_BASE);
     end
 
     always_ff @(posedge clk or negedge rst_n) begin : mem_write
