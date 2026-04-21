@@ -72,7 +72,7 @@ INCFLAGS = $(addprefix -I, $(INC_PATH))
 CYCLES ?= 10000
 CXXFLAGS += $(INCFLAGS) -DTOP_NAME=V$(TOPNAME) -DTOP_HEADER="\"V$(TOPNAME).h\""
 CXXFLAGS += -g -DSIM_CYCLES=$(CYCLES)
-LDFLAGS += -lcapstone -lreadline -lhistory
+LDFLAGS += -lcapstone -lreadline -lhistory -ldl
 
 $(BOARD_BIN): $(VSRCS) $(CSRCS) $(NVBOARD_ARCHIVE)
 	$(VERILATOR) $(VERILATOR_CFLAGS) \
@@ -89,7 +89,17 @@ $(SIM_BIN): $(VSRCS) $(CPP_TB)
 
 
 VCD_FILE ?= $(WAVE_DIR)/$(TOPNAME).vcd
-SIM_ARGS ?= IMG=$(IMAGE) VCD=$(VCD_FILE) CYCLES=$(CYCLES)
+AUTOCONF_H = include/config/autoconf.h
+# 2. 检查宏定义 (如果该宏存在，grep 返回 0，&& echo "y" 将变量置为 y)
+HAS_DIFFTEST = $(shell grep -q "CONFIG_DIFFTEST" $(AUTOCONF_H) && echo "y")
+# 3. 基础参数
+
+DIFF_ARGS = --diff=$(NEMU_HOME)/build/riscv32-nemu-interpreter-so
+SIM_ARGS = $(IMAGE) $(DIFF_ARGS)
+# 4. 根据检查结果决定是否追加
+# ifeq ($(HAS_DIFFTEST), y)
+
+# endif
 sim: $(SIM_BIN)
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 	@echo "Write this Makefile by your self."

@@ -14,12 +14,12 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
     input logic [DATA_WIDTH-1:0] CSR_epc,
 
     output logic [DATA_WIDTH-1:0] PC_current,
+    output logic [DATA_WIDTH-1:0] PC_next,
     output logic [DATA_WIDTH-1:0] instruction,
     output except_cause            IF_exception
 );
 
     logic is_jal;
-    logic [DATA_WIDTH-1:0] PC_next;
     logic [DATA_WIDTH-1:0] PCInc4;
     assign PCInc4 = PC_current + 4;
     assign is_jal = instruction[3];

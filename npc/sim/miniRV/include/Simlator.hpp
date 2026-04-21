@@ -8,6 +8,15 @@
 // 仿真状态定义（保持与 SDB 同步）
 enum SimState { RUNNING, STOP, ABORT, QUIT, END };
 
+struct NPC_State {
+    SimState state;
+    vaddr_t halt_pc;
+    uint32_t halt_ret;
+    vaddr_t current_pc;
+    vaddr_t next_pc;
+    IFDEF(CONFIG_ITRACE, char logbuf[128]);
+};
+
 
 struct CPU_Statistic
 {
@@ -50,8 +59,8 @@ struct CPU_Config {
     // 标记为 inline，告诉编译器这是允许在多处定义的
     inline void parse(int argc, char **argv) {
         for (int i = 1; i < argc; ++i) {
-            if (strncmp(argv[i], "IMG=", 4) == 0) {
-                img_path = argv[i] + 4;
+            if (strncmp(argv[i], "/home", 5) == 0) {
+                img_path = argv[i];
             } else if (strncmp(argv[i], "CYCLES=", 7) == 0) {
                 cycle_max = atoi(argv[i] + 7);
             } else if (strncmp(argv[i], "VCD=", 4) == 0) {
@@ -78,9 +87,6 @@ struct CPU_Config {
 
 class Simlator {
 private:
-    // 1. 硬件实体：仅包含 Verilator 生成的顶层对象
-    Vtop_TopMiniRV* top;
-
     // 2. 内部仿真计数器
     CPU_Statistic* statistic;
     CPU_Config* config;
@@ -88,9 +94,12 @@ private:
 
 public:
     // 单例模式，方便 Bridge 层访问
+    Vtop_TopMiniRV* top;
+    DUT_data* dut_data;
+    NPC_State* npc_state;
     static Simlator* instance;
 
-    Simlator(Vtop_TopMiniRV* DUT, int argc, char **argv);
+    Simlator(Vtop_TopMiniRV* DUT);
     ~Simlator();
 
     // --- 仿真初始化接口 ---
@@ -103,6 +112,7 @@ public:
     void execute(uint64_t n);         // 执行 n 条指令（考虑指令提交信号）
     bool reset();
     void run();
+    void init(int argc, char **argv);
 
     // --- 硬件状态访问接口 (Getter) ---
     // 这些接口供 Bridge 层调用，从而间接服务于 SDB 和 Trace
@@ -122,6 +132,9 @@ public:
     CPU_Statistic* get_statistic() const { return statistic; }
     const char* get_img_name() const { return config->get_filename(); }
     const char* get_img_path() const { return config->img_path.c_str(); }
+    void init_DUT_state();
+    void update_DUT_state();
+    void init_NPC_state();
 };
 
 #endif

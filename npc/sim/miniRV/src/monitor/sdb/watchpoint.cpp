@@ -15,6 +15,7 @@
 
 #include "sdb.h"
 #include "npc.h"
+#include "Simlator.hpp"
 
 #define NR_WP 32
 
@@ -92,6 +93,7 @@ int wp_scan_wp() {
     if(cur_value != curr->last_value) {
       curr->last_value = cur_value;
       triggered = 1;
+      Simlator::instance->set_state(SimState::STOP);
       printf("NPC halted due to watchpoint %d: %s\n", curr->NO, curr->expr);
       printf(ANSI_FG_BLUE "Watchpoint %d triggered: %s\n" ANSI_NONE,
          curr->NO, curr->expr);

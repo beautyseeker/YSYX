@@ -7,6 +7,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 3
     input logic                  rst_n,
 
     output logic [DATA_WIDTH-1:0] PC_current,
+    output logic [DATA_WIDTH-1:0] PC_next,
     output logic [DATA_WIDTH-1:0] instruction,
     output logic [DATA_WIDTH-1:0] gpr [REG_COUNT-1:0], // 输出整个寄存器文件状态，便于调试
     output CSR_bundle_out csr_bundle
@@ -51,6 +52,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 3
         .CSR_epc(csr_bundle.CSR_epc), // 由CSRFile提供
 
         .PC_current(PC_current),
+        .PC_next(PC_next),
         .instruction(instruction),
         .IF_exception(if_exception)
     );

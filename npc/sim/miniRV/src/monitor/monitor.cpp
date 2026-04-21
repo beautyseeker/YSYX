@@ -12,6 +12,8 @@ void init_disasm();
 void init_elf(const char *filename);
 void sdb_mainloop();
 
+extern uint8_t* guest_to_host(paddr_t addr);
+
 
 static void welcome() {
   Log("Trace: %s", MUXDEF(CONFIG_TRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
@@ -19,7 +21,7 @@ static void welcome() {
         "to record the trace. This may lead to a large log file. "
         "If it is not necessary, you can disable it in menuconfig"));
   Log("Build time: %s, %s", __TIME__, __DATE__);
-  printf("Welcome to %s-NEMU!\n", ANSI_FMT(str(__GUEST_ISA__), ANSI_FG_YELLOW ANSI_BG_RED));
+  printf("Welcome to %s-NEMU!\n", ANSI_FMT(str(RV32-NPC), ANSI_FG_YELLOW ANSI_BG_RED));
   printf("For help, type \"help\"\n");
 }
 
@@ -37,16 +39,15 @@ void print_statistic(Simlator* cpu) {
             (double)stat->cycle_nr / stat->inst_nr);
     }
     SIMLOG("-----------------------------------------------------------------------");
-    exit(0);
 }
 
 void print_trap_state(Simlator* cpu, int state) {
   auto stat = cpu->get_statistic();
     if(state == 0) {
-        printf(ANSI_FMT("HIT A GOOD TRAP!\n", ANSI_FG_GREEN));
+        printf(ANSI_FMT("[%ld] HIT A GOOD TRAP!\n", ANSI_FG_GREEN), stat->inst_nr);
         cpu->set_state(SimState::END);
     } else {
-        printf(ANSI_FMT("[%ld]\nHIT A BAD TRAP!\n", ANSI_FG_RED), 
+        printf(ANSI_FMT("[%ld] HIT A BAD TRAP!\n", ANSI_FG_RED), 
         stat->inst_nr);
         cpu->set_state(SimState::ABORT);
     }
@@ -101,7 +102,7 @@ static int parse_args(int argc, char *argv[]) {
       case 'l': log_file = optarg; break;
       case 'd': diff_so_file = optarg; break;
       case 'e': elf_file = optarg; break;
-      case 1: img_file = optarg; return 0;
+      case 1: img_file = optarg; break;
       default:
         printf("Usage: %s [OPTION...] IMAGE [args]\n\n", argv[0]);
         printf("\t-b,--batch              run with batch mode\n");
@@ -121,7 +122,11 @@ void init_monitor(int argc, char *argv[]) {
 
   /* Parse arguments. */
   parse_args(argc, argv);
-
+  for(int i = 0; i < argc; i++) {
+    printf("Monitor parse Argument %d: %s\n", i, argv[i]);
+  }
+  printf("Parsed arguments:log_file=%s, diff_so_file=%s, difftest_port=%d, elf_file=%s, img_file=%s\n",
+  log_file, diff_so_file, difftest_port, elf_file, img_file);
   /* Set random seed. */
   // init_rand();
 
@@ -129,7 +134,7 @@ void init_monitor(int argc, char *argv[]) {
   // init_log(log_file);
 
   /* Initialize memory. */
-  // init_mem();
+  init_mem();
 
   /* Initialize devices. */
   // IFDEF(CONFIG_DEVICE, init_device());
@@ -138,10 +143,10 @@ void init_monitor(int argc, char *argv[]) {
   // init_isa();
 
   /* Load the image to memory. This will overwrite the built-in image. */
-  // long img_size = load_img();
+  long img_size = load_img();
 
   /* Initialize differential testing. */
-  // init_difftest(diff_so_file, img_size, difftest_port);
+  init_difftest(diff_so_file, img_size, difftest_port);
 
   /* Initialize the simple debugger. */
   init_sdb();

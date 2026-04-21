@@ -11,24 +11,29 @@ const char *rv32_reg_name[] = {
 
 Simlator* Simlator::instance = nullptr;
 
-Simlator::Simlator(Vtop_TopMiniRV* NPC, int argc, char **argv) : 
+Simlator::Simlator(Vtop_TopMiniRV* NPC) : 
     top(NPC), sim_state(STOP) {
     // 初始化统计信息
     statistic = new CPU_Statistic();
     statistic->reset();
     config = new CPU_Config();
-    for(int i = 0; i < argc; ++i) {
-        printf("Argument %d: %s\n", i, argv[i]);
-    }
-    config->parse(argc, argv);
-    reset();
+    dut_data = new DUT_data();
+    npc_state = new NPC_State();
     instance = this; // 设置单例实例
 }
 
 Simlator::~Simlator() {
     delete statistic;
     delete config;
+    delete dut_data;
+    delete npc_state;
     instance = nullptr; // 清除单例实例
+}
+
+void Simlator::init(int argc, char **argv) {
+    config->parse(argc, argv); // 这里可以传入实际的命令行参数
+    reset();
+    init_DUT_state();
 }
 
 
@@ -55,6 +60,9 @@ void Simlator::clock_step(uint64_t n) {
         // 这里可以做一些时钟上升沿的同步逻辑
         top->clk = 0; top->eval();
         statistic->cycle_nr++;
+        IFDEF(CONFIG_DIFFTEST, update_DUT_state(););
+        npc_state->current_pc = top->PC_current;
+        npc_state->next_pc = top->PC_next;
     }
 }
 
@@ -63,7 +71,7 @@ extern uint64_t get_time_internal();
 bool Simlator::reset() {
     sim_state = RUNNING;
     top->rst_n = 0;
-    clock_step(2);
+    clock_step(5);  // 电路复位冲刷
     top->rst_n = 1;
     statistic->reset();
     statistic->boot_time = get_time_internal();
@@ -101,6 +109,24 @@ word_t Simlator::get_gpr(const char *name) const {
     }
     SIMERROR("Invalid register name: %s\n", name);
     return 0xdeadbeef;
+}
+
+void Simlator::init_DUT_state() {
+    memset(dut_data, 0, sizeof(DUT_data));
+    dut_data->pc = top->PC_current;
+}
+
+void Simlator::update_DUT_state() {
+    for (int i = 0; i < 32; i++) {
+        dut_data->gpr[i] = top->gpr[i]; 
+    }
+    dut_data->pc = top->PC_current;
+}
+
+void Simlator::init_NPC_state() {
+    npc_state->state = sim_state;
+    npc_state->current_pc = top->PC_current;
+    npc_state->next_pc = top->PC_next;
 }
 
 word_t isa_reg_str2val(const char* name, bool *success) {
