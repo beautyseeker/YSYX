@@ -16,6 +16,8 @@
 #include <dlfcn.h>
 #include <capstone/capstone.h>
 #include <common.h>
+#include "Simlator.hpp"
+#include <stdlib.h>
 
 #if defined(__APPLE__)
 #define CS_LIB_SUFFIX "5.dylib"
@@ -31,9 +33,15 @@ static void (*cs_free_dl)(cs_insn *insn, size_t count);
 
 static csh handle;
 
-void init_disasm() {
-  void *dl_handle;
-  dl_handle = dlopen("($NEMU_HOME)/tools/capstone/repo/libcapstone." CS_LIB_SUFFIX, RTLD_LAZY);
+void InstTracer::init_disasm() {
+  char *nemu_home = getenv("NEMU_HOME");
+  if (nemu_home == NULL) {
+    printf("Error: Environment variable NEMU_HOME is not set!\n");
+    assert(0);
+  }
+  std::string lib_path = std::string(nemu_home) + "/tools/capstone/repo/libcapstone." CS_LIB_SUFFIX;
+  printf("Attempting to load libcapstone from: %s\n", lib_path.c_str());
+  void *dl_handle = dlopen(lib_path.c_str(), RTLD_LAZY);
   assert(dl_handle);
 
 
@@ -65,7 +73,7 @@ void init_disasm() {
 #endif
 }
 
-void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte) {
+void InstTracer::disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte) {
 	cs_insn *insn;
 	size_t count = cs_disasm_dl(handle, code, nbyte, pc, 0, &insn);
   assert(count == 1);

@@ -19,6 +19,7 @@ Simlator::Simlator(Vtop_TopMiniRV* NPC) :
     config = new CPU_Config();
     dut_data = new DUT_data();
     npc_state = new NPC_State();
+    itracer = IFDEF(CONFIG_ITRACE, new InstTracer(), nullptr);
     instance = this; // 设置单例实例
 }
 
@@ -27,6 +28,7 @@ Simlator::~Simlator() {
     delete config;
     delete dut_data;
     delete npc_state;
+    IFDEF(CONFIG_ITRACE, delete itracer);
     instance = nullptr; // 清除单例实例
 }
 
@@ -64,16 +66,47 @@ void Simlator::execute(uint64_t n) {
         statistic->inst_nr += (top->rst_n == 0) ? 0 : 1;
         clock_tick(1);
         statistic->cycle_nr++;
+
         IFDEF(CONFIG_DIFFTEST, {
             update_DUT_state();
             difftest_step(top->PC_current, top->PC_next);
         });
+
         IFDEF(CONFIG_WATCHPOINT, {
             wp_scan_wp();
+        });
+
+        IFDEF(CONFIG_ITRACE, {
+            char asm_str[128];
+            itracer->disassemble(asm_str, sizeof(asm_str), top->PC_current, (uint8_t*)&top->instruction, 4);
+            snprintf(npc_state->logbuf, sizeof(npc_state->logbuf), 
+            ANSI_FG_BLUE "[cycle=%lu] [PC=0x%08x] inst: %08x %s\n" ANSI_NONE, 
+            statistic->cycle_nr, top->PC_current, top->instruction, asm_str);
+            printf("%s", npc_state->logbuf);
+            itracer->push_irring(npc_state->logbuf);
         });
         npc_state->current_pc = top->PC_current;
         npc_state->next_pc = top->PC_next;
     }
+}
+
+void InstTracer::push_irring(const char* log) {
+    strncpy(iring_buf[iring_head], log, sizeof(iring_buf[0]) - 1);
+    iring_buf[iring_head][sizeof(iring_buf[0]) - 1] = '\0';
+    iring_head = (iring_head + 1) % IRING_SIZE;
+}
+
+void InstTracer::print_irring() {
+    int idx = iring_head;
+    printf(ANSI_FMT("--------------Instruction Ring Buffer (last %d instructions)-------------:\n", 
+    ANSI_FG_CYAN), IRING_SIZE);
+    for (int i = 0; i < IRING_SIZE; ++i) {
+        idx = (idx - 1 + IRING_SIZE) % IRING_SIZE; // 逆序打印
+        if (iring_buf[idx][0] != '\0') { // 只打印有效的日志
+            Trace("Iring", ANSI_FG_YELLOW, "%s", iring_buf[idx]);
+        }
+    }
+    printf(ANSI_FMT("--------------End of Instruction Ring Buffer-------------\n", ANSI_FG_CYAN));
 }
 
 

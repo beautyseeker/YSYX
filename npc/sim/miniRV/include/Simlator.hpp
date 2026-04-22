@@ -84,6 +84,26 @@ struct CPU_Config {
 
 };
 
+class InstTracer {
+private:
+    static const int IRING_SIZE = 16;
+    char iring_buf[IRING_SIZE][128];
+    int iring_head;
+    const char* empty_str = "empty";
+public:
+    InstTracer(int size = IRING_SIZE) : iring_head(0) {
+        for (int i = 0; i < IRING_SIZE; ++i) {
+            strncpy(iring_buf[i], empty_str, sizeof(iring_buf[i]) - 1);
+            iring_buf[i][sizeof(iring_buf[i]) - 1] = '\0';
+        }
+    }
+    void disassemble(char *asm_str, int asm_size, uint64_t pc, uint8_t *code, int nbyte);
+    void init_disasm();
+    void push_irring(const char* log);
+    void push_irring(vaddr_t pc);
+    void print_irring();
+};
+
 
 class Simlator {
 private:
@@ -99,6 +119,7 @@ public:
     Vtop_TopMiniRV* top;
     DUT_data* dut_data;
     NPC_State* npc_state;
+    IFDEF(CONFIG_ITRACE, InstTracer* itracer);
     static Simlator* instance;
 
     Simlator(Vtop_TopMiniRV* DUT);

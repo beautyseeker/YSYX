@@ -94,9 +94,8 @@ int wp_scan_wp() {
       curr->last_value = cur_value;
       triggered = 1;
       Simlator::instance->set_state(SimState::STOP);
-      printf("NPC halted due to watchpoint %d: %s\n", curr->NO, curr->expr);
-      printf(ANSI_FG_BLUE "Watchpoint %d triggered: %s\n" ANSI_NONE,
-         curr->NO, curr->expr);
+      printf(ANSI_FG_BLUE "Watchpoint NO %d triggered by expression:%s inst_log: %s\n" ANSI_NONE,
+      curr->NO, curr->expr, Simlator::instance->npc_state->logbuf);
     }
     curr = curr->next;
   }
