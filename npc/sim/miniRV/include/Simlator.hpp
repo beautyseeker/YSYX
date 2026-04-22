@@ -92,6 +92,8 @@ private:
     CPU_Config* config;
     SimState sim_state;
 
+    void clock_tick(uint64_t n);
+
 public:
     // 单例模式，方便 Bridge 层访问
     Vtop_TopMiniRV* top;
@@ -108,8 +110,7 @@ public:
     bool load_ram(const char* ram_path);
 
     // --- 核心驱动接口 ---
-    void clock_step(uint64_t n);      // 推动时钟翻转 n 次
-    void execute(uint64_t n);         // 执行 n 条指令（考虑指令提交信号）
+    void execute(uint64_t n);      // 推动时钟翻转 n 次
     bool reset();
     void run();
     void init(int argc, char **argv);

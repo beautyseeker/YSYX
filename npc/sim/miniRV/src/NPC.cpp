@@ -30,6 +30,13 @@ Simlator::~Simlator() {
     instance = nullptr; // 清除单例实例
 }
 
+void Simlator::clock_tick(uint64_t n) {
+    for(uint64_t i = 0; i < n; ++i) {
+        top->clk = 1; top->eval();
+        top->clk = 0; top->eval();
+    }
+}
+
 void Simlator::init(int argc, char **argv) {
     config->parse(argc, argv); // 这里可以传入实际的命令行参数
     reset();
@@ -49,18 +56,21 @@ bool Simlator::load_ram(const char* ram_path) {
     return true;
 }
 
-void Simlator::clock_step(uint64_t n) {
+extern void difftest_step(vaddr_t npc_pc, vaddr_t npc_next_pc);
+extern void wp_scan_wp();
+
+void Simlator::execute(uint64_t n) {
     for (uint64_t i = 0; i < n && sim_state == RUNNING; ++i) {
-        statistic->inst_nr += (top->rst_n == 0) ? 0 : 1; // 如果处于复位状态，不增加指令计数
-
-        // printf("[%ld] PC=0x%08x inst=0x%08x\n", 
-        // statistic->inst_nr, top->PC_current, top->instruction);
-
-        top->clk = 1; top->eval();
-        // 这里可以做一些时钟上升沿的同步逻辑
-        top->clk = 0; top->eval();
+        statistic->inst_nr += (top->rst_n == 0) ? 0 : 1;
+        clock_tick(1);
         statistic->cycle_nr++;
-        IFDEF(CONFIG_DIFFTEST, update_DUT_state(););
+        IFDEF(CONFIG_DIFFTEST, {
+            update_DUT_state();
+            difftest_step(top->PC_current, top->PC_next);
+        });
+        IFDEF(CONFIG_WATCHPOINT, {
+            wp_scan_wp();
+        });
         npc_state->current_pc = top->PC_current;
         npc_state->next_pc = top->PC_next;
     }
@@ -71,7 +81,9 @@ extern uint64_t get_time_internal();
 bool Simlator::reset() {
     sim_state = RUNNING;
     top->rst_n = 0;
-    clock_step(5);  // 电路复位冲刷
+    for(int i = 0; i < 10; i++) {
+        clock_tick(1);
+     }
     top->rst_n = 1;
     statistic->reset();
     statistic->boot_time = get_time_internal();
@@ -82,10 +94,10 @@ void Simlator::run() {
     if(sim_state == RUNNING) {
     #if ALWAYS_RUN
         while (true) {
-            clock_step(1);
+            execute(1);
         }
     #else
-        clock_step(-1);
+        execute(-1);
     #endif
     }
 }
