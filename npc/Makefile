@@ -62,7 +62,7 @@ CPP_TB := $(if $(wildcard $(SIM_DIR)/sim_$(MODULE).cpp),\
 # rules for NVBoard
 include $(NVBOARD_HOME)/scripts/nvboard.mk
 
-INC_PATH += /home/passion/ysyx-workbench/npc/sim/miniRV/include $(NEMU_HOME)/include/generated/
+INC_PATH += $(NPC_HOME)/sim/miniRV/include $(NEMU_HOME)/include/generated/
 # rules for verilator
 INCFLAGS = $(addprefix -I, $(INC_PATH))
 
@@ -89,21 +89,16 @@ $(SIM_BIN): $(VSRCS) $(CPP_TB)
 
 
 VCD_FILE ?= $(WAVE_DIR)/$(TOPNAME).vcd
-AUTOCONF_H = include/config/autoconf.h
-# 2. 检查宏定义 (如果该宏存在，grep 返回 0，&& echo "y" 将变量置为 y)
-HAS_DIFFTEST = $(shell grep -q "CONFIG_DIFFTEST" $(AUTOCONF_H) && echo "y")
-# 3. 基础参数
 
 DIFF_ARGS = --diff=$(NEMU_HOME)/build/riscv32-nemu-interpreter-so
-SIM_ARGS = $(IMAGE) $(DIFF_ARGS)
-# 4. 根据检查结果决定是否追加
-# ifeq ($(HAS_DIFFTEST), y)
+BATCH ?= 
+SDB_ARGS = $(IMAGE) $(DIFF_ARGS) $(if $(BATCH),--batch,)
 
 # endif
 sim: $(SIM_BIN)
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 	@echo "Write this Makefile by your self."
-	$(abspath $(SIM_BIN)) $(SIM_ARGS)
+	$(abspath $(SIM_BIN)) $(SDB_ARGS)
 # 	@echo "Simulation finished. Waveform saved to: $(VCD_FILE)"
 
 

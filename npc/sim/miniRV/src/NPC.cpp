@@ -19,7 +19,7 @@ Simlator::Simlator(Vtop_TopMiniRV* NPC) :
     config = new CPU_Config();
     dut_data = new DUT_data();
     npc_state = new NPC_State();
-    itracer = IFDEF(CONFIG_ITRACE, new InstTracer(), nullptr);
+    IFDEF(CONFIG_ITRACE, itracer = new InstTracer());
     instance = this; // 设置单例实例
 }
 

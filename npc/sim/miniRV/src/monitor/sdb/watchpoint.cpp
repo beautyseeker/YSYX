@@ -94,8 +94,9 @@ int wp_scan_wp() {
       curr->last_value = cur_value;
       triggered = 1;
       Simlator::instance->set_state(SimState::STOP);
+      char* inst_log = Simlator::instance->npc_state->logbuf;
       printf(ANSI_FG_BLUE "Watchpoint NO %d triggered by expression:%s inst_log: %s\n" ANSI_NONE,
-      curr->NO, curr->expr, Simlator::instance->npc_state->logbuf);
+      curr->NO, curr->expr, inst_log);
     }
     curr = curr->next;
   }

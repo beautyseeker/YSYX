@@ -25,9 +25,8 @@ image: image-dep
 	@echo + OBJCOPY "->" $(IMAGE_REL).bin
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
-CYCLES ?= 10000
 run: insert-arg
 	@hexdump -v -e '1/4 "%08x" "\n"' $(IMAGE).bin > $(IMAGE).hex
-	$(MAKE) -C $(NPC_HOME) IMAGE=$(IMAGE).hex MODULE=TopMiniRV CYCLES=$(CYCLES) sim
+	$(MAKE) -C $(NPC_HOME) IMAGE=$(IMAGE).hex MODULE=TopMiniRV sim
 
 .PHONY: insert-arg

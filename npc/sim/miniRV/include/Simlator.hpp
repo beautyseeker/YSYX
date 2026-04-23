@@ -14,7 +14,7 @@ struct NPC_State {
     uint32_t halt_ret;
     vaddr_t current_pc;
     vaddr_t next_pc;
-    IFDEF(CONFIG_ITRACE, char logbuf[128]);
+    char logbuf[128];
 };
 
 
