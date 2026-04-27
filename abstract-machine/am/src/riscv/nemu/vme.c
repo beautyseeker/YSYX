@@ -58,8 +58,8 @@ void protect(AddrSpace *as) {
 }
 
 void unprotect(AddrSpace *as) {
-  pgfree_usr(as->ptr);
-  as->ptr = NULL;
+  // pgfree_usr(as->ptr);
+  // as->ptr = NULL;
 }
 
 void __am_get_cur_as(Context *c) {
@@ -73,32 +73,32 @@ void __am_switch(Context *c) {
 }
 
 void map(AddrSpace *as, void *va, void *pa, int prot) {
-  PTE *pg_dir = (PTE *)as->ptr;
-  uintptr_t vpn1 = VPN1(va);
-  uintptr_t vpn0 = VPN0(va);
+  // PTE *pg_dir = (PTE *)as->ptr;
+  // uintptr_t vpn1 = VPN1(va);
+  // uintptr_t vpn0 = VPN0(va);
 
-  // 1. 处理一级页表项
-  if (!(pg_dir[vpn1] & PTE_V)) {
-    // 分配二级页表
-    PTE *new_pt = (PTE *)pgalloc_usr(PGSIZE);
-    // 清零新分配的页表，防止旧数据干扰
-    memset(new_pt, 0, PGSIZE); 
-    // 填入一级页表：注意 PPN 转换
-    pg_dir[vpn1] = (((uintptr_t)new_pt >> 12) << 10) | PTE_V;
-  }
+  // // 1. 处理一级页表项
+  // if (!(pg_dir[vpn1] & PTE_V)) {
+  //   // 分配二级页表
+  //   PTE *new_pt = (PTE *)pgalloc_usr(PGSIZE);
+  //   // 清零新分配的页表，防止旧数据干扰
+  //   memset(new_pt, 0, PGSIZE); 
+  //   // 填入一级页表：注意 PPN 转换
+  //   pg_dir[vpn1] = (((uintptr_t)new_pt >> 12) << 10) | PTE_V;
+  // }
 
-  // 2. 找到二级页表并填入最终映射
-  PTE *pg_table = (PTE *)((pg_dir[vpn1] >> 10) << 12);
-  // 必须加上 PTE_U，否则用户程序无法访问！
-  // 假设 prot 传入时已经包含了必要的 R/W/X 权限
-  pg_table[vpn0] = (((uintptr_t)pa >> 12) << 10) | prot | PTE_V | PTE_U;
+  // // 2. 找到二级页表并填入最终映射
+  // PTE *pg_table = (PTE *)((pg_dir[vpn1] >> 10) << 12);
+  // // 必须加上 PTE_U，否则用户程序无法访问！
+  // // 假设 prot 传入时已经包含了必要的 R/W/X 权限
+  // pg_table[vpn0] = (((uintptr_t)pa >> 12) << 10) | prot | PTE_V | PTE_U;
 }
 
 Context *ucontext(AddrSpace *as, Area kstack, void *entry) {
-  protect(as);
+  // protect(as);
   Context *ctx = (Context *)(kstack.end - sizeof(Context));
   ctx->mstatus = 0x80; // MPP=U-mode, MPIE=1
   ctx->mepc = (uintptr_t)entry;
-  ctx->pdir = as->ptr;
+  // ctx->pdir = as->ptr;
   return ctx;
 }

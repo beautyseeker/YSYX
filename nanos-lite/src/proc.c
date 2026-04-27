@@ -18,8 +18,8 @@ void switch_boot_pcb() {
 void hello_fun(void *arg) {
   int j = 1;
   while (1) {
-    for(int volatile i = 0; i < 100000; i++);
-    Log("Hello World from Nanos-lite with arg '%p' for the %dth time!", (uintptr_t)arg, j);
+    for(int volatile i = 0; i < 1; i++);
+    // Log("Hello World from Nanos-lite with arg '%p' for the %dth time!", (uintptr_t)arg, j);
     j ++;
     yield();
   }
@@ -31,7 +31,7 @@ void init_proc() {
   context_kload(&pcb[0], hello_fun, (void *)0x12345678);
   // context_kload(&pcb[1], hello_fun, (void *)0x87654321);
   // char *argv[] = {"/bin/exec-test", "1", NULL};
-  context_uload(&pcb[1], "/bin/exec-test", (char *const []){"/bin/hello", NULL}, NULL);
+  context_uload(&pcb[1], "/bin/nterm", NULL, NULL);
   // context_uload(&pcb[1], "/bin/hello");
   switch_boot_pcb();
 
@@ -42,7 +42,7 @@ void init_proc() {
 Context* schedule(Event ev, Context *prev) {
   current->cp = prev;
   current = (current == &pcb[0] ? &pcb[1] : &pcb[0]);
-  printf("Switching to process from %p to %p due to event %d\n", prev, current->cp, ev.event);
+  // printf("Switching to process from %p to %p due to event %d\n", prev, current->cp, ev.event);
   return current->cp;
 }
 

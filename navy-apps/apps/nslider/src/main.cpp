@@ -78,6 +78,9 @@ int main() {
             rep = 0; g = 0;
           }
           break;
+        case SDLK_ESCAPE:
+          SDL_Quit();
+          return 0;
       }
     }
   }

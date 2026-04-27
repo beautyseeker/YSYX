@@ -9,6 +9,8 @@ static const char *keyname[] = {
   _KEYS(keyname)
 };
 
+static uint8_t s_keystate[512] = {0};
+
 int SDL_PushEvent(SDL_Event *ev) {
   return 0;
 }
@@ -32,8 +34,12 @@ int SDL_PollEvent(SDL_Event *ev) {
     }
     if (strcmp(evt_type, "kd") == 0) {
       ev->type = SDL_KEYDOWN;
+      if (ev->key.keysym.sym < 512)
+        s_keystate[ev->key.keysym.sym] = 1;  // ← 新增
     } else if (strcmp(evt_type, "ku") == 0) {
       ev->type = SDL_KEYUP;
+        if (ev->key.keysym.sym < 512)
+          s_keystate[ev->key.keysym.sym] = 0;  // ← 新增
     } else {
       ev->type = 0; // 未知事件类型
     }
@@ -58,5 +64,6 @@ int SDL_PeepEvents(SDL_Event *ev, int numevents, int action, uint32_t mask) {
 }
 
 uint8_t* SDL_GetKeyState(int *numkeys) {
-  return NULL;
+  if (numkeys) *numkeys = 512;
+  return s_keystate;  // ← 返回有效数组
 }

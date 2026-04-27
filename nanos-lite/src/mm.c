@@ -9,7 +9,7 @@ void* new_page(size_t nr_page) {
   if(pf > (void *)heap.end) {
     panic("Out of physical memory! pf (%p) exceeded heap.end (%p)", pf, heap.end);
   }
-  Assert(old_pf != NULL, "Failed to allocate new page");
+  // Assert(old_pf != NULL, "Failed to allocate new page");
   return old_pf;
 }
 
