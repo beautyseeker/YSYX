@@ -3,6 +3,7 @@
 !*/
 !/nemu/*
 !/nexus-am/*
+!/am-kernels/*
 !/nanos-lite/*
 !/navy-apps/*
 !/npc/**
@@ -10,8 +11,7 @@
 !README.md
 !.gitignore
 !init.sh
-!/Misc/*
+!/Misc/**
 /nvboard
 /yosys-sta
 /fceux-am
-!/am-kernels/*
