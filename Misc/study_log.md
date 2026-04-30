@@ -859,9 +859,8 @@ libam是让AM裸机程序能在 Navy/Nanos 用户态下运行的适配层，它�
 由于裸机环境没有操作系统来解析main函数的参数，所以在平台运行时代码`trm.c`中提前声明一个静态mainargs字符串，生成的镜像文件用`insert-arg.py`脚本找到mainargs字符串变量位置并将其镜像文件插入替换，生成新的镜像。
 
 AM/Makefile做了下面这些事情
-展开平台架构编译链接参数——打包构建am核心库——编译am应用程序——传参处理、链接并生成目标平台镜像——启动目标硬件平台的镜像加载命令
+根据环境变量ARCH确定目标平台的编译链接参数——打包构建am核心库——指定应用程序NAME和SRC，编译am应用程序——传参处理、链接并生成目标平台镜像——加载目标平台镜像
 
-NEMU/Makefile做了这些事
 
 以 hello 目录下执行 `make ARCH=riscv32-nemu run` 为例，完整走一遍Makefile流程
 
@@ -886,9 +885,12 @@ make ARCH=riscv32-nemu run
                                       加载到 0x80000000
                                       PC = _start → main() → halt()
 ```
-`config.mk` 指定虚拟机ISA、编译链接选项、虚拟机参数配置、Monitor设置
-`build.mk`  通用编译模板，编译链接出nemu虚拟机
-`native.mk` AM程序镜像在nemu虚拟机的加载启动命令
+
+NEMU的makefile主要由下面三个组成
+`scripts/config.mk` 指定虚拟机ISA、编译链接选项、虚拟机参数配置、Monitor设置
+`src/**/filelist.mk` 指定编译虚拟机的源文件黑白名单
+`scripts/build.mk`  通用编译模板，编译链接出nemu虚拟机
+`scripts/native.mk` nemu虚拟机的加载启动AM程序镜像
 
 nemu/Makefile做了这些事
 config.mk配置读取虚拟机参数——filelist.mk指定源文件以及源文件黑名单——build.mk编译出nemu模拟器——native.mk nemu模拟器加载运行AM程序镜像
@@ -916,3 +918,15 @@ make run (在 nemu/ 目录)
        ├─ 编译所有 SRCS → OBJ_DIR/*.o
        ├─ 链接 → build/riscv32-nemu-interpreter
        └─ 执行: ./riscv32-nemu-interpreter --log=nemu-log.txt IMG
+
+Navy的Makefile主要由以下组成：
+指定程序源码SRC、指定源码需要的LIBS系统库、指定源码要编译的ISA、链接为二进制镜像。有以下关键命令
+install:复制镜像文件到fsimg文件夹
+fsimg:安装全部test程序镜像
+ramdisk:制作系统文件镜像，主要是格式化为Nanos文件系统能辨识的结构体格式
+$NANOS-HOME/ make ARCH=riscv32-nemu update 创建并更新与navy系统调用、系统文件镜像相关的软链接
+$NANOS-HOME/ make ARCH=riscv32-nemu run Nanos作为系统内核运行用户程序
+
+
+# 4/30
+docker本质不过是一个基于Linux内核的环境镜像容器，它让运行在指定docker镜像上的程序误认为拥有了全部环境

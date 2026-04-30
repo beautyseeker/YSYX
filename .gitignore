@@ -12,6 +12,6 @@
 !.gitignore
 !init.sh
 !/Misc/**
-/nvboard
 /yosys-sta
 /fceux-am
+/nvboard
