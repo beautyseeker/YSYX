@@ -3,14 +3,14 @@
 import defs_pkg::*;
 import "DPI-C" function void handle_sys_brk();
 
-module IDU #(parameter DATA_WIDTH = 32)
+module IDU #(parameter DATA_WIDTH = 32, REG_ADDR_WIDTH = 5)
 (
     input logic [31:0] inst,
 
     // 寄存器地址输出
-    output logic [4:0] rs1_addr,
-    output logic [4:0] rs2_addr,
-    output logic [4:0] rd_addr,
+    output logic [REG_ADDR_WIDTH-1:0] rs1_addr,
+    output logic [REG_ADDR_WIDTH-1:0] rs2_addr,
+    output logic [REG_ADDR_WIDTH-1:0] rd_addr,
 
     // 控制信号输出
     output logic [DATA_WIDTH-1:0] imm, // 经过扩展的最终立即数
@@ -45,10 +45,10 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
     logic [4:0]  immCSR;
     // 指令字段解析
     assign opcode   = inst[6:0];
-    assign rd_addr  = inst[11:7];
+    assign rd_addr  = inst[7+REG_ADDR_WIDTH-1:7];
     assign funct3   = inst[14:12];
-    assign rs1_addr = inst[19:15];
-    assign rs2_addr = inst[24:20];
+    assign rs1_addr = inst[15+REG_ADDR_WIDTH-1:15];
+    assign rs2_addr = inst[20+REG_ADDR_WIDTH-1:20];
     assign funct7   = inst[31:25];
 
     // 立即数生成（以 I-type 为例，其他类型需要根据 opcode 进行区分）

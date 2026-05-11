@@ -124,7 +124,7 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
 }
 
 bool isa_difftest_checkregs(DUT_data *ref_r, vaddr_t pc) {
-  for (int i = 0; i < 32; i++) {
+  for (int i = 0; i < NR_GPR; i++) {
     if (ref_r->gpr[i] != cpu->get_gpr(i)) {
       Log(ANSI_FG_RED "Register %s mismatch at pc = " FMT_WORD ": ref = " FMT_WORD ", dut = " FMT_WORD "\n" ANSI_NONE,
           rv32_reg_name[i], pc, ref_r->gpr[i], cpu->get_gpr(i));

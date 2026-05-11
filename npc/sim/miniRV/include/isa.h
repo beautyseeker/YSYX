@@ -2,11 +2,11 @@
 #define __ISA_H__
 #include "common.h"
 
-extern const char *rv32_reg_name[32];
+#define NR_GPR MUXDEF(CONFIG_RVE, 16, 32)
+extern const char *rv32_reg_name[NR_GPR];
 
 typedef struct __attribute__((packed)) {
-  // 注意：检查你的 config，如果你开启了 CONFIG_RVE，这里是 16，否则是 32
-  word_t gpr[32]; 
+  word_t gpr[NR_GPR];
   vaddr_t pc;
   struct {
     word_t mstatus;

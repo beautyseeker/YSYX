@@ -1,7 +1,7 @@
 // `include "defs_pkg.sv"
 import defs_pkg::*;
 
-module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 32, RESET_VEC = 32'h8000_0000)
+module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 16, RESET_VEC = 32'h8000_0000)
 (
     input logic                  clk,
     input logic                  rst_n,
@@ -57,7 +57,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 3
         .IF_exception(if_exception)
     );
 
-    IDU #(.DATA_WIDTH(DATA_WIDTH)) idu (
+    IDU #(.DATA_WIDTH(DATA_WIDTH), .REG_ADDR_WIDTH(REG_ADDR_WIDTH)) idu (
         .inst(instruction),
         .rs1_addr(Rs1_addr),
         .rs2_addr(Rs2_addr),

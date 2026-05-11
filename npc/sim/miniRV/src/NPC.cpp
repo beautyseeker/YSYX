@@ -2,12 +2,19 @@
 #include "npc.h"
 #include "isa.h"
 
+#ifdef CONFIG_RVE
+const char *rv32_reg_name[] = {
+  "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
+  "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5"
+};
+#else
 const char *rv32_reg_name[] = {
   "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
   "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
   "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7",
   "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
 };
+#endif
 
 Simlator* Simlator::instance = nullptr;
 
@@ -136,7 +143,7 @@ void Simlator::run() {
 }
 
 word_t Simlator::get_gpr(int idx) const {
-    if (idx < 0 || idx >= 32) {
+    if (idx < 0 || idx >= NR_GPR) {
         SIMERROR("Invalid GPR index: %d\n", idx);
         return 0xdeadbeef;
     }
@@ -144,7 +151,7 @@ word_t Simlator::get_gpr(int idx) const {
 }
 
 word_t Simlator::get_gpr(const char *name) const {
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < NR_GPR; i++) {
         if (strcmp(name, rv32_reg_name[i]) == 0) {
             return top->gpr[i];
         }
@@ -162,8 +169,8 @@ void Simlator::init_DUT_state() {
 }
 
 void Simlator::update_DUT_state() {
-    for (int i = 0; i < 32; i++) {
-        dut_data->gpr[i] = top->gpr[i]; 
+    for (int i = 0; i < NR_GPR; i++) {
+        dut_data->gpr[i] = top->gpr[i];
     }
     dut_data->pc = top->PC_current;
 }
@@ -194,7 +201,7 @@ void isa_reg_display() {
     if (Simlator::instance) {
         auto cpu = Simlator::instance;
         printf("\n------------------------- Register Dump -------------------------\n");
-        for (int i = 0; i < 32; i++) {
+        for (int i = 0; i < NR_GPR; i++) {
             printf("%-4s= 0x%08x  ", rv32_reg_name[i], cpu->get_gpr(i));
             if ((i + 1) % 8 == 0) {
                 printf("\n");

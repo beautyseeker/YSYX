@@ -23,12 +23,28 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
     logic [DATA_WIDTH-1:0] PCInc4;
     assign PCInc4 = PC_current + 4;
     assign is_jal = instruction[3];
+    logic branch_taken;
+    always_comb begin
+        if(ctrl_sig.jmp_en && ctrl_sig.PC_sel == PC_BRANCH) begin
+            case (instruction[14:12]) // funct3
+                3'b000: branch_taken = ALU_zero; // BEQ
+                3'b001: branch_taken = ~ALU_zero; // BNE
+                3'b100: branch_taken = (ALU_result[0]); // BLT:  SLT==1 → src1 < src2 (signed)
+                3'b101: branch_taken = (~ALU_result[0]); // BGE:  SLT==0 → src1 >= src2 (signed)
+                3'b110: branch_taken = (ALU_result[0]); // BLTU: SLTU==1 → src1 < src2 (unsigned)
+                3'b111: branch_taken = (~ALU_result[0]); // BGEU: SLTU==0 → src1 >= src2 (unsigned)
+                default: branch_taken = 1'b0; // 不合法的分支指令，默认不跳转
+            endcase
+        end else begin
+            branch_taken = 1'b0;
+        end
+    end
 
     always_comb begin : PC_next_sel
         if(ctrl_sig.jmp_en)
             case(ctrl_sig.PC_sel)
                 PC_PLUS4:   PC_next = PCInc4;
-                PC_BRANCH:  PC_next = ALU_zero ? PC_current + PC_rel_imm : PCInc4; // 分支跳转
+                PC_BRANCH:  PC_next = branch_taken ? PC_current + PC_rel_imm : PCInc4; // 分支跳转
                 PC_JMP:     PC_next = is_jal ? PC_current + PC_rel_imm : ALU_result & ~1; // 无条件跳转
                 PC_TRAP_ENT: PC_next = CSR_tvec;
                 PC_TRAP_RET: PC_next = CSR_epc;
