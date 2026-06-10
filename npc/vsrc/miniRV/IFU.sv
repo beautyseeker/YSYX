@@ -1,6 +1,5 @@
 // `include "defs_pkg.sv"
 import defs_pkg::*;
-import "DPI-C" function string get_img_path();
 
 module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_0000)
 (
@@ -12,10 +11,12 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
     input logic [DATA_WIDTH-1:0] PC_rel_imm,
     input logic [DATA_WIDTH-1:0] CSR_tvec,
     input logic [DATA_WIDTH-1:0] CSR_epc,
+    input logic                  idu_ready,
 
     output logic [DATA_WIDTH-1:0] PC_current,
     output logic [DATA_WIDTH-1:0] PC_next,
     output logic [DATA_WIDTH-1:0] instruction,
+    output logic                  ifu_valid,
     output except_cause            IF_exception
 );
 
@@ -24,6 +25,32 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
     assign PCInc4 = PC_current + 4;
     assign is_jal = instruction[3];
     logic branch_taken;
+
+    typedef enum logic [1:0] {
+        IDLE,
+        WAIT
+    } IFU_state_t;
+
+    IFU_state_t current, next;
+
+    always_comb begin
+        case (current)
+            IDLE: next = WAIT;
+            WAIT: next = (idu_ready) ? IDLE : WAIT;
+            default: next = IDLE;
+        endcase
+    end
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            current <= IDLE;
+        end else begin
+            current <= next;
+        end
+    end
+
+    assign ifu_valid = (current == WAIT);
+
     always_comb begin
         if(ctrl_sig.jmp_en && ctrl_sig.PC_sel == PC_BRANCH) begin
             case (instruction[14:12]) // funct3
@@ -57,7 +84,7 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
     always_ff @( posedge clk, negedge rst_n ) begin : PC_update
         if(!rst_n) begin
             PC_current <= RESET_VEC;
-        end else begin
+        end else if(ifu_valid && idu_ready) begin
             PC_current <= PC_next;
         end
     end
@@ -65,15 +92,6 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
     localparam BYTES_PER_WORD = DATA_WIDTH / 8;
     localparam ALIGNED_WIDTH = $clog2(BYTES_PER_WORD);
     localparam ROM_DEPTH = 1 << (ADDR_WIDTH - ALIGNED_WIDTH); 
-    logic [DATA_WIDTH-1:0] ROM [0:ROM_DEPTH-1];
-    initial begin
-        string path = get_img_path();
-        if (path == "") begin
-            path = ROM_FILE_DEFAULT;
-        end
-        $display("ROM initialized from: %s", path);
-        $readmemh(path, ROM, 0); // 从RESET_VEC开始加载指令
-    end
 
     logic fetch_exception;
     logic [ADDR_WIDTH-ALIGNED_WIDTH-1:0] word_idx;
@@ -84,15 +102,19 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
         fetch_exception = (mapped_addr[ALIGNED_WIDTH-1:0] != 0); // 检查是否4字节对齐
         if(fetch_exception) begin
             word_idx = 0;
-            instruction = 32'h00000013; // NOP指令
             IF_exception = EXC_INST_MISALIGNED;
         end else begin
             word_idx = mapped_addr[ADDR_WIDTH-1:ALIGNED_WIDTH]; // 4字节对齐地址
-            instruction = ROM[word_idx];
             IF_exception = EXC_NONE;
         end
     end
 
+    ROM #(.DATA_WIDTH(DATA_WIDTH), .SIZE(ROM_DEPTH)) rom (
+        .clk(clk),
+        .rst_n(rst_n),
+        .raddr(word_idx),
+        .rdata(instruction)
+    );
 // 确保 PC 永远是 4 字节对齐的（除非你有异常处理）
 property p_pc_aligned;
     @(posedge clk) (rst_n) |-> (PC_current[ALIGNED_WIDTH-1:0] == 0);

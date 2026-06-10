@@ -6,6 +6,7 @@ import "DPI-C" function void handle_sys_brk();
 module IDU #(parameter DATA_WIDTH = 32, REG_ADDR_WIDTH = 5)
 (
     input logic [31:0] inst,
+    input logic        ifu_valid,
 
     // 寄存器地址输出
     output logic [REG_ADDR_WIDTH-1:0] rs1_addr,
@@ -15,6 +16,7 @@ module IDU #(parameter DATA_WIDTH = 32, REG_ADDR_WIDTH = 5)
     // 控制信号输出
     output logic [DATA_WIDTH-1:0] imm, // 经过扩展的最终立即数
     output Ctrl_sig_t ctrl_sig,
+    output logic idu_ready,
     output except_cause ID_exception
 );
 
@@ -33,6 +35,8 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
     mem_sign: MEM_SIGNED,
     mem_size: MEM_WORD
 };
+
+    assign idu_ready = 1;
 
     logic [6:0] opcode;
     logic [2:0] funct3;

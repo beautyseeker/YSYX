@@ -70,27 +70,40 @@ extern void wp_scan_wp();
 
 void Simlator::execute(uint64_t n) {
     for (uint64_t i = 0; i < n && sim_state == RUNNING; ++i) {
-        statistic->inst_nr += (top->rst_n == 0) ? 0 : 1;
         clock_tick(1);
         statistic->cycle_nr++;
 
+        // SimpleBus IFU: 每条指令需要 2 个周期 (IDLE + WAIT)
+        // 只有 ifu_valid = 1 (WAIT 状态) 时指令才真正完成执行
+        bool inst_valid = (top->rst_n != 0) && top->ifu_valid;
+
+        if (inst_valid) {
+            statistic->inst_nr++;
+        }
+
         IFDEF(CONFIG_DIFFTEST, {
-            update_DUT_state();
-            difftest_step(top->PC_current, top->PC_next);
+            if (inst_valid) {
+                update_DUT_state();
+                difftest_step(top->PC_current, top->PC_next);
+            }
         });
 
         IFDEF(CONFIG_WATCHPOINT, {
-            wp_scan_wp();
+            if (inst_valid) {
+                wp_scan_wp();
+            }
         });
 
         IFDEF(CONFIG_ITRACE, {
-            char asm_str[128];
-            itracer->disassemble(asm_str, sizeof(asm_str), top->PC_current, (uint8_t*)&top->instruction, 4);
-            snprintf(npc_state->logbuf, sizeof(npc_state->logbuf), 
-            ANSI_FG_BLUE "[cycle=%lu] [PC=0x%08x] inst: %08x %s\n" ANSI_NONE, 
-            statistic->cycle_nr, top->PC_current, top->instruction, asm_str);
-            printf("%s", npc_state->logbuf);
-            itracer->push_irring(npc_state->logbuf);
+            if (inst_valid) {
+                char asm_str[128];
+                itracer->disassemble(asm_str, sizeof(asm_str), top->PC_current, (uint8_t*)&top->instruction, 4);
+                snprintf(npc_state->logbuf, sizeof(npc_state->logbuf), 
+                ANSI_FG_BLUE "[cycle=%lu] [PC=0x%08x] inst: %08x %s\n" ANSI_NONE, 
+                statistic->cycle_nr, top->PC_current, top->instruction, asm_str);
+                printf("%s", npc_state->logbuf);
+                itracer->push_irring(npc_state->logbuf);
+            }
         });
         npc_state->current_pc = top->PC_current;
         npc_state->next_pc = top->PC_next;
