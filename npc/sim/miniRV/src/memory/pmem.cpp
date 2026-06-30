@@ -1,7 +1,7 @@
 #include "common.h"
 #include "monitor.h"
 #include "Vtop_TopMiniRV_top_TopMiniRV.h"
-#include "Vtop_TopMiniRV_LSU.h"
+#include "Vtop_TopMiniRV_LSU__A18.h"
 
 // static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
 static uint8_t* pmem = nullptr;
@@ -43,7 +43,7 @@ void init_mem() {
     if (!lsu_ptr) { panic("LSU module is null!"); }
     
     // 安全获取内存
-    pmem = reinterpret_cast<uint8_t*>(&lsu_ptr->MEM[0]);
+    pmem = reinterpret_cast<uint8_t*>(&lsu_ptr->__PVT__ram__DOT__MEM[0]);
     Log("physical memory area [" FMT_PADDR ", " FMT_PADDR "]", PMEM_LEFT, PMEM_RIGHT);
     Log("Memory Trace: %s", MUXDEF(CONFIG_MTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
 }
@@ -54,8 +54,10 @@ extern "C" {
     void handle_mem_access_error(uint32_t addr, uint32_t mapped_addr) {
         auto cpu = Simlator::instance;
         print_trap_state(cpu, -1);
-        SIMERROR("Memory access error at address: 0x%08x, mapped address: 0x%08x\n", addr, mapped_addr);
+        SIMERROR("%s Memory access error at address: 0x%08x, mapped address: 0x%08x\n", 
+                cpu->get_img_name(), addr, mapped_addr);
         cpu->set_state(SimState::ABORT);
+        exit(-1);
     }
 
     void handle_sys_brk() {

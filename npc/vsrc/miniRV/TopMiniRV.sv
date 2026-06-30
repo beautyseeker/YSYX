@@ -1,7 +1,7 @@
 // `include "defs_pkg.sv"
 import defs_pkg::*;
 
-module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 16, RESET_VEC = 32'h8000_0000)
+module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 16, RESET_VEC = 32'h8000_0000)
 (
     input logic                  clk,
     input logic                  rst_n,
@@ -11,12 +11,13 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 1
     output logic [DATA_WIDTH-1:0] instruction,
     output logic [DATA_WIDTH-1:0] gpr [REG_COUNT-1:0], // 输出整个寄存器文件状态，便于调试
     output CSR_bundle_out csr_bundle,
-    output logic                  ifu_valid
+    output logic                  fire
 );
     // 模块实例化
     localparam REG_ADDR_WIDTH = $clog2(REG_COUNT); // 寄存器地址宽度，根据寄存器数量计算
     logic [REG_ADDR_WIDTH-1:0] Rs1_addr, Rs2_addr, Rd_addr;
     logic [DATA_WIDTH-1:0] Rs1_data, Rs2_data, Rd_data;
+    logic lsu_ready;
     logic [DATA_WIDTH-1:0] alu_result;
     logic ALU_zero;
     logic [DATA_WIDTH-1:0] mem_load_data;
@@ -26,6 +27,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 1
 
     Ctrl_sig_t ctrl_sig;
     except_cause if_exception, id_exception, ex_exception, mem_exception, exception;
+    logic idu_ready;
     always_comb begin : exception_arbiter
         // 简单的优先级仲裁：IF > ID > EX > MEM
         if (if_exception != EXC_NONE) begin
@@ -42,7 +44,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 1
         
     end
 
-    logic idu_ready;
+    logic ifu_valid;
 
     IFU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH), .RESET_VEC(RESET_VEC)) ifu (
         .clk(clk),
@@ -61,8 +63,12 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 1
         .ifu_valid(ifu_valid),
         .IF_exception(if_exception)
     );
+    assign fire = ifu_valid && idu_ready;
 
     IDU #(.DATA_WIDTH(DATA_WIDTH), .REG_ADDR_WIDTH(REG_ADDR_WIDTH)) idu (
+        .clk(clk),
+        .rst_n(rst_n),
+        .lsu_ready(lsu_ready),
         .inst(instruction),
         .ifu_valid(ifu_valid),
         .rs1_addr(Rs1_addr),
@@ -83,7 +89,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 1
         .rs1_data(Rs1_data),
         .rs2_data(Rs2_data),
         .write_data(Rd_data),
-        .reg_write_en(ctrl_sig.reg_write_en && ifu_valid),
+        .reg_write_en(ctrl_sig.reg_write_en),
         .gpr(gpr)
     );
 
@@ -119,7 +125,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 1
         .EXCPT_code(exception),
         .CSR_RS1(Rs1_data),
         .CSR_imm(imm_ext),
-        .csr_write_en(ctrl_sig.WB_sel == CSR && ctrl_sig.reg_write_en && ifu_valid),
+        .csr_write_en(ctrl_sig.WB_sel == CSR && ctrl_sig.reg_write_en),
         .csr_read_out(CSR_reg),
         .csr_bundle_out(csr_bundle)
     );
@@ -131,10 +137,12 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, REG_COUNT = 1
         .store_data(Rs2_data), // 存储数据来自寄存器
         .mem_size(ctrl_sig.mem_size), // 根据指令类型设置
         .mem_sign(ctrl_sig.mem_sign), // 根据指令类型设置
-        .mem_write_en(ctrl_sig.mem_write_en && ifu_valid),
-        .mem_read_en(ctrl_sig.mem_read_en && ifu_valid),
+        .mem_write_en(ctrl_sig.mem_write_en),
+        .mem_read_en(ctrl_sig.mem_read_en),
+        .ifu_valid(ifu_valid),
         .load_data(mem_load_data),
-        .mem_exception(mem_exception)
+        .mem_exception(mem_exception),
+        .lsu_ready(lsu_ready)
     );
 
 

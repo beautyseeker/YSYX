@@ -1,0 +1,83 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Tue Jun 30 10:25:17 2026
+[*]
+[dumpfile] "/home/passion/ysyx-workbench/npc/waveform.vcd"
+[dumpfile_mtime] "Tue Jun 30 10:20:28 2026"
+[dumpfile_size] 98453
+[savefile] "/home/passion/ysyx-workbench/npc/config.gtkw"
+[timestart] 0
+[size] 3776 2081
+[pos] -1 -1
+*-2.170997 31 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] TOP.
+[treeopen] TOP.top_TopMiniRV.
+[treeopen] TOP.top_TopMiniRV.lsu.
+[sst_width] 297
+[signals_width] 410
+[sst_expanded] 1
+[sst_vpaned_height] 657
+@28
+TOP.clk
+TOP.rst_n
+@200
+-
+-
+@22
+TOP.top_TopMiniRV.PC_current[31:0]
+TOP.top_TopMiniRV.PC_next[31:0]
+TOP.top_TopMiniRV.alu_result[31:0]
+TOP.top_TopMiniRV.instruction[31:0]
+@200
+-
+-
+@28
+TOP.top_TopMiniRV.ifu_valid
+TOP.top_TopMiniRV.idu_ready
+TOP.top_TopMiniRV.lsu_ready
+TOP.top_TopMiniRV.fire
+@200
+-
+-
+@22
+TOP.top_TopMiniRV.lsu.addr[31:0]
+@28
+TOP.top_TopMiniRV.lsu.mem_write_en
+TOP.top_TopMiniRV.lsu.mem_read_en
+@22
+TOP.top_TopMiniRV.lsu.load_data[31:0]
+TOP.top_TopMiniRV.lsu.rdata[31:0]
+TOP.top_TopMiniRV.lsu.store_data[31:0]
+TOP.top_TopMiniRV.lsu.byte_mask[3:0]
+@28
+TOP.top_TopMiniRV.lsu.byte_offset[1:0]
+@22
+TOP.top_TopMiniRV.lsu.word_idx[21:0]
+@28
+TOP.top_TopMiniRV.lsu.addr_in_mem
+@200
+-
+@201
+-
+@200
+-
+-
+@22
+TOP.gpr[0][31:0]
+TOP.gpr[1][31:0]
+TOP.gpr[2][31:0]
+TOP.gpr[3][31:0]
+TOP.gpr[4][31:0]
+TOP.gpr[5][31:0]
+TOP.gpr[6][31:0]
+TOP.gpr[7][31:0]
+TOP.gpr[8][31:0]
+TOP.gpr[9][31:0]
+TOP.gpr[10][31:0]
+TOP.gpr[11][31:0]
+TOP.gpr[12][31:0]
+TOP.gpr[13][31:0]
+TOP.gpr[14][31:0]
+TOP.gpr[15][31:0]
+[pattern_trace] 1
+[pattern_trace] 0

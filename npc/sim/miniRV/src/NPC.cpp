@@ -27,6 +27,12 @@ Simlator::Simlator(Vtop_TopMiniRV* NPC) :
     dut_data = new DUT_data();
     npc_state = new NPC_State();
     IFDEF(CONFIG_ITRACE, itracer = new InstTracer());
+    Verilated::traceEverOn(true);
+    tfp = new VerilatedVcdC;
+    top->trace(tfp, 99); // 追踪深度，99表示记录所有子模块
+    config->vcd_path = std::getenv("VCD_FILE") ? 
+    std::getenv("VCD_FILE") : std::string(get_img_name())+"waveform.vcd";
+    tfp->open(config->vcd_path.c_str());
     instance = this; // 设置单例实例
 }
 
@@ -35,6 +41,8 @@ Simlator::~Simlator() {
     delete config;
     delete dut_data;
     delete npc_state;
+    tfp->close();
+    delete tfp;
     IFDEF(CONFIG_ITRACE, delete itracer);
     instance = nullptr; // 清除单例实例
 }
@@ -42,12 +50,18 @@ Simlator::~Simlator() {
 void Simlator::clock_tick(uint64_t n) {
     for(uint64_t i = 0; i < n; ++i) {
         top->clk = 1; top->eval();
+        tfp->dump(statistic->sim_tick++);
         top->clk = 0; top->eval();
+        tfp->dump(statistic->sim_tick++);
     }
 }
 
 void Simlator::init(int argc, char **argv) {
     config->parse(argc, argv); // 这里可以传入实际的命令行参数
+    // top->trace(tfp, 99); // 追踪深度，99表示记录所有子模块
+    // config->vcd_path = std::getenv("VCD_FILE") ? 
+    // std::getenv("VCD_FILE") : std::string(get_img_name())+"waveform.vcd";
+    // tfp->open(config->vcd_path.c_str());
     reset();
     init_DUT_state();
 }
@@ -73,9 +87,9 @@ void Simlator::execute(uint64_t n) {
         clock_tick(1);
         statistic->cycle_nr++;
 
-        // SimpleBus IFU: 每条指令需要 2 个周期 (IDLE + WAIT)
-        // 只有 ifu_valid = 1 (WAIT 状态) 时指令才真正完成执行
-        bool inst_valid = (top->rst_n != 0) && top->ifu_valid;
+        // SimpleBus IFU: 每条指令完成需要若干个周期 (IDLE(指令从ROM被取出且合法) + WAIT(基于访存延迟))
+        // 只有 fire = 1 完成握手，指令才真正完成执行
+        bool inst_valid = (top->rst_n != 0) && top->fire;
 
         if (inst_valid) {
             statistic->inst_nr++;
@@ -99,8 +113,8 @@ void Simlator::execute(uint64_t n) {
                 char asm_str[128];
                 itracer->disassemble(asm_str, sizeof(asm_str), top->PC_current, (uint8_t*)&top->instruction, 4);
                 snprintf(npc_state->logbuf, sizeof(npc_state->logbuf), 
-                ANSI_FG_BLUE "[cycle=%lu] [PC=0x%08x] inst: %08x %s\n" ANSI_NONE, 
-                statistic->cycle_nr, top->PC_current, top->instruction, asm_str);
+                ANSI_FG_BLUE "[cycle=%lu] [inst_nr=%lu] [PC=0x%08x] inst: %08x %s\n" ANSI_NONE, 
+                statistic->cycle_nr, statistic->inst_nr, top->PC_current, top->instruction, asm_str);
                 printf("%s", npc_state->logbuf);
                 itracer->push_irring(npc_state->logbuf);
             }
@@ -134,9 +148,7 @@ extern uint64_t get_time_internal();
 bool Simlator::reset() {
     sim_state = RUNNING;
     top->rst_n = 0;
-    for(int i = 0; i < 10; i++) {
-        clock_tick(1);
-     }
+    clock_tick(5);
     top->rst_n = 1;
     statistic->reset();
     statistic->boot_time = get_time_internal();

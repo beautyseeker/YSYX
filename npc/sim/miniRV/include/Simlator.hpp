@@ -4,6 +4,8 @@
 #include "Vtop_TopMiniRV.h"
 #include "isa.h"
 #include <string>
+#include "verilated.h"
+#include "verilated_vcd_c.h"
 
 // 仿真状态定义（保持与 SDB 同步）
 enum SimState { RUNNING, STOP, ABORT, QUIT, END };
@@ -20,6 +22,7 @@ struct NPC_State {
 
 struct CPU_Statistic
 {
+    uint64_t sim_tick;
     uint64_t cycle_nr;
     uint64_t inst_nr;
     uint64_t boot_time;
@@ -72,12 +75,12 @@ struct CPU_Config {
 
     inline const char* get_filename() const {
         const char* filename = strrchr(img_path.c_str(), '/');
-        printf("Extracting filename from path: %s\n", img_path.c_str());
+        // printf("Extracting filename from path: %s\n", img_path.c_str());
         if (filename) {
-            printf("Extracted filename: %s\n", filename + 1);
+            // printf("Extracted filename: %s\n", filename + 1);
             return filename + 1; // 返回文件名部分
         } else {
-            printf("No path separator found, using entire string as filename: %s\n", img_path.c_str());
+            // printf("No path separator found, using entire string as filename: %s\n", img_path.c_str());
             return img_path.c_str(); // 如果没有路径分隔符，直接返回输入字符串
         }
     }
@@ -87,7 +90,7 @@ struct CPU_Config {
 class InstTracer {
 private:
     static const int IRING_SIZE = 16;
-    char iring_buf[IRING_SIZE][128];
+    char iring_buf[IRING_SIZE][256];
     int iring_head;
     const char* empty_str = "empty";
 public:
@@ -119,6 +122,7 @@ public:
     Vtop_TopMiniRV* top;
     DUT_data* dut_data;
     NPC_State* npc_state;
+    VerilatedVcdC* tfp;
     IFDEF(CONFIG_ITRACE, InstTracer* itracer);
     static Simlator* instance;
 

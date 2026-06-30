@@ -2,7 +2,7 @@
 import defs_pkg::*;
 import "DPI-C" function void handle_mem_access_error(input int unsigned addr, input int unsigned mapped_addr);
 import "DPI-C" function longint unsigned mmio_read(input int unsigned addr);
-import "DPI-C" function void mmio_write(input int unsigned addr, input int data, input byte wmask);
+import "DPI-C" function void mmio_write(input int unsigned addr, input int data, input byte mask);
 
 module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_0000)
 // RAM地址空间32bit * 2^18 = 1MB,访存地址4字节对齐
@@ -15,8 +15,10 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_00
     input mem_sign_e             mem_sign,
     input logic                  mem_write_en,
     input logic                  mem_read_en,
+    input logic                  ifu_valid,
 
     output logic [DATA_WIDTH-1:0] load_data,
+    output logic                 lsu_ready,
     output except_cause            mem_exception
 );
 
@@ -29,9 +31,8 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_00
 
     logic [DATA_WIDTH-1:0] mapped_addr;
     assign mapped_addr = addr - PMEM_BASE; // 将访问地址映射到内存地址空间
-    logic [DATA_WIDTH-1:0] MEM [0:PMEM_SIZE-1] /* verilator public*/ ; 
 
-    logic [ADDR_WIDTH-1:0] word_idx;
+    logic [ADDR_WIDTH-1-ALIGNED_WIDTH:0] word_idx;
     logic [7:0] byte_data;
     logic [15:0] half_data;
     logic [31:0] word_data;
@@ -43,7 +44,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_00
     assign addr_in_mem = (addr >= PMEM_BASE) && (addr < PMEM_BASE + PMEM_SIZE);
     assign addr_in_IO = addr inside {SERIAL_ADDR, RTC_ADDR, RTC_ADDR+BYTES_PER_WORD};
     assign byte_offset = mapped_addr[ALIGNED_WIDTH-1:0];
-    assign word_idx = mapped_addr[ADDR_WIDTH-1+ALIGNED_WIDTH:ALIGNED_WIDTH]; // 4字节对齐地址
+    assign word_idx = mapped_addr[ADDR_WIDTH-1:ALIGNED_WIDTH]; // 4字节对齐地址
 
     always_comb begin : access_check
         misaligned_access = 1'b0;
@@ -59,13 +60,15 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_00
                 MEM_HALF: begin
                     if (byte_offset[0] != 1'b0) begin
                         misaligned_access = 1'b1;
-                        $error("Misaligned half-word access at address %h at time %t", addr, $time);
+                        $warning("Misaligned half-word access");
+                        handle_mem_access_error(addr, mapped_addr);
                     end
                 end
                 MEM_WORD: begin
                     if (byte_offset != 2'b00) begin
                         misaligned_access = 1'b1;
-                        $error("Misaligned word access at address %h at time %t", addr, $time);
+                        $warning("Misaligned word access");
+                        handle_mem_access_error(addr, mapped_addr);
                     end
                 end
                 default: begin
@@ -73,8 +76,7 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_00
                 end
             endcase
             if (!addr_in_mem && !addr_in_IO) begin
-                $warning("Address: %h out of range[%h, %h]  address mapped address: %h at time %t",
-                 addr, PMEM_BASE, PMEM_BASE + PMEM_SIZE - 1, mapped_addr, $time);
+                $warning("OUT OF MEM");
                 handle_mem_access_error(addr, mapped_addr);
             end
         end
@@ -91,80 +93,75 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_00
         end
     end
 
-    logic [63:0] uptime;
+
+logic respValid;
+logic [DATA_WIDTH-1:0] rdata;
+logic [3:0] byte_mask;
+logic [7:0] target_byte;
+logic [15:0] target_half;
+
+always_comb begin : mask_and_store_gen
+    byte_mask = 4'b0000;
+    target_byte = 8'b0;
+    target_half = 16'b0;
+    case(mem_size)
+        MEM_BYTE: begin
+            case(byte_offset)
+                2'b00: begin byte_mask = 4'b0001; target_byte = rdata[7:0]; end
+                2'b01: begin byte_mask = 4'b0010; target_byte = rdata[15:8]; end
+                2'b10: begin byte_mask = 4'b0100; target_byte = rdata[23:16]; end
+                2'b11: begin byte_mask = 4'b1000; target_byte = rdata[31:24]; end
+            endcase
+            load_data = mem_sign ? 32'($signed(target_byte)) : 32'($unsigned(target_byte)); 
+        end
+        MEM_HALF: begin
+            case(byte_offset[1])
+                1'b0: begin byte_mask = 4'b0011; target_half = rdata[15:0]; end
+                1'b1: begin byte_mask = 4'b1100; target_half = rdata[31:16]; end
+            endcase
+            load_data = mem_sign ? 32'($signed(target_half)) : 32'($unsigned(target_half)); 
+        end
+        MEM_WORD: begin
+            byte_mask = 4'b1111;
+            load_data = rdata[31:0];
+        end
+        default: begin
+            byte_mask = 4'b1111;
+            load_data = rdata;
+        end
+    endcase
+end
+
+    // 连接到 RAM 例化口
+    RAM #(.DATA_WIDTH(DATA_WIDTH), .SIZE(1<<(ADDR_WIDTH-ALIGNED_WIDTH))) ram (
+        .clk(clk),
+        .rst_n(rst_n),
+        .addr(word_idx),
+        .reqValid((mem_read_en || mem_write_en)),
+        .wen(mem_write_en),
+        .wdata(store_data),
+        .mask(byte_mask),
+        .rdata(rdata),
+        .respValid(respValid)
+    );
+    assign lsu_ready = respValid;
+
+    // logic [63:0] uptime;
     //异步读取数据
-    always_comb begin : mem_read
-        if (mem_read_en) begin
-            if(!misaligned_access && addr_in_mem) begin
-                case (mem_size)
-                    MEM_BYTE: begin
-                        byte_data = MEM[word_idx][(byte_offset * 8) +: 8];
-                        load_data = mem_sign ? {{24{byte_data[7]}}, byte_data} : {24'b0, byte_data};
-                    end
-                    MEM_HALF: begin
-                        half_data = MEM[word_idx][(byte_offset * 8) +: 16];
-                        load_data = mem_sign ? {{16{half_data[15]}}, half_data} : {16'b0, half_data};
-                    end
-                    MEM_WORD: begin
-                        word_data = MEM[word_idx][byte_offset * 8 +: 32];
-                        load_data = word_data;
-                    end
-                    default: load_data = 'x;
-                endcase
-            end
-            if(addr == RTC_ADDR || addr == RTC_ADDR + BYTES_PER_WORD) begin
-                uptime = mmio_read(addr);
-                // $display("SV MMIO Read from RTC:addr=0x%h data=0x%h", addr, uptime);
-                case (mem_size)
-                    MEM_WORD: load_data = (addr == RTC_ADDR) ? uptime[31:0] : uptime[63:32];
-                    default: load_data = 'x;
-                endcase
-            end
-        end
+    // always_comb begin : mem_read
+    //     if(addr == RTC_ADDR || addr == RTC_ADDR + BYTES_PER_WORD) begin
+    //         uptime = mmio_read(addr);
+    //         case (mem_size)
+    //             MEM_WORD: load_data = (addr == RTC_ADDR) ? uptime[31:0] : uptime[63:32];
+    //             default: load_data = 'x;
+    //         endcase
+    //     end
+    // end
 
-        else begin
-            load_data = 'x;
-        end
-    end
-
-    //同步写入数据
-    // 根据最低位byte_offset和mem_size计算写掩码，确保只修改目标字节/半字/字
-    logic [DATA_WIDTH-1:0] byte_mask, half_mask;
-    assign byte_mask = ({{(DATA_WIDTH-8){1'b0}}, 8'hFF}) << (byte_offset * 8);
-    assign half_mask = ({{(DATA_WIDTH-16){1'b0}}, 16'hFFFF}) << (byte_offset * 8);
-
-    initial begin
-        static string path = get_img_path();
-        if (path == "") begin
-            path = RAM_FILE_DEFAULT;
-        end
-        $readmemh(path, MEM);
-    end
-
-    always_ff @(posedge clk or negedge rst_n) begin : mem_write
-        if (!rst_n) begin
-            // 复位时清空内存（可选，根据需求决定是否需要）
-        end 
-        else if (mem_write_en) begin
-            if(!misaligned_access && addr_in_mem) begin
-                case (mem_size)
-                    MEM_BYTE: begin
-                        MEM[word_idx] <= (MEM[word_idx] & ~byte_mask)
-                                    | (({{(DATA_WIDTH-8){1'b0}}, store_data[7:0]} << (byte_offset * 8)) & byte_mask);
-                    end
-                    MEM_HALF: begin
-                        MEM[word_idx] <= (MEM[word_idx] & ~half_mask)
-                                    | (({{(DATA_WIDTH-16){1'b0}}, store_data[15:0]} << (byte_offset * 8)) & half_mask);
-                    end
-                    MEM_WORD: begin
-                        MEM[word_idx] <= store_data;
-                    end
-                    default: MEM[word_idx] <= {DATA_WIDTH{1'bx}};
-                endcase
-            end
+    always_ff @(posedge clk) begin : mem_write
+        if (mem_write_en) begin
             if (addr == SERIAL_ADDR) begin
-                // $display("SV MMIO Write to SERIAL: data=%h, byte_mask=%h", store_data, byte_mask);
-                mmio_write(addr, store_data, byte_mask[7:0]);
+                mmio_write(addr, store_data, 8'hff);
         end
     end
 end

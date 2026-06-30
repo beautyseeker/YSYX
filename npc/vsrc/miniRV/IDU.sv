@@ -5,8 +5,11 @@ import "DPI-C" function void handle_sys_brk();
 
 module IDU #(parameter DATA_WIDTH = 32, REG_ADDR_WIDTH = 5)
 (
-    input logic [31:0] inst,
-    input logic        ifu_valid,
+    input logic                  clk,
+    input logic                  rst_n,
+    input logic                  lsu_ready,
+    input logic [31:0]           inst,
+    input logic                  ifu_valid,
 
     // 寄存器地址输出
     output logic [REG_ADDR_WIDTH-1:0] rs1_addr,
@@ -19,6 +22,13 @@ module IDU #(parameter DATA_WIDTH = 32, REG_ADDR_WIDTH = 5)
     output logic idu_ready,
     output except_cause ID_exception
 );
+
+// inst为非访存指令时,idu_ready = 1'b1，当前周期就完成译码并就绪
+// inst为访存指令时,idu_ready = lsu_ready，等待LSU完成访存操作
+
+    logic is_access_mem;
+    assign is_access_mem = inst[6:0] inside {7'b0000011, 7'b0100011};
+    assign idu_ready = is_access_mem ? lsu_ready : 1'b1;
 
 localparam logic ENABLE = 1'b1;
 localparam logic DISABLE = 1'b0;
@@ -35,8 +45,6 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
     mem_sign: MEM_SIGNED,
     mem_size: MEM_WORD
 };
-
-    assign idu_ready = 1;
 
     logic [6:0] opcode;
     logic [2:0] funct3;
@@ -80,6 +88,9 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
             default:
                 imm = {DATA_WIDTH{1'b0}};
         endcase
+        if(!ifu_valid) begin
+            imm = {DATA_WIDTH{1'b0}};
+        end
     end
 
     always_comb begin : CtrlGen
@@ -217,5 +228,8 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                 ctrl_sig = 'x; // INVALID instruction
             end
         endcase
+        if(!ifu_valid) begin
+            ctrl_sig = DEFAULT_CTRL_SIG;
+        end
     end
 endmodule
