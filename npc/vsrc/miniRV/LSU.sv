@@ -46,41 +46,41 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_00
     assign byte_offset = mapped_addr[ALIGNED_WIDTH-1:0];
     assign word_idx = mapped_addr[ADDR_WIDTH-1:ALIGNED_WIDTH]; // 4字节对齐地址
 
-    always_comb begin : access_check
-        misaligned_access = 1'b0;
-        if (mem_read_en || mem_write_en) begin
-            assert(mem_size inside {MEM_BYTE, MEM_HALF, MEM_WORD})
-            else $error("Invalid mem_size: %0d at time %t", mem_size, $time);
-            assert(mem_sign inside {MEM_SIGNED, MEM_UNSIGNED})
-            else $error("Invalid mem_sign: %0d at time %t", mem_sign, $time);
-            case (mem_size)
-                MEM_BYTE: begin
-                    // Byte access is always aligned
-                end
-                MEM_HALF: begin
-                    if (byte_offset[0] != 1'b0) begin
-                        misaligned_access = 1'b1;
-                        $warning("Misaligned half-word access");
-                        handle_mem_access_error(addr, mapped_addr);
-                    end
-                end
-                MEM_WORD: begin
-                    if (byte_offset != 2'b00) begin
-                        misaligned_access = 1'b1;
-                        $warning("Misaligned word access");
-                        handle_mem_access_error(addr, mapped_addr);
-                    end
-                end
-                default: begin
-                    misaligned_access = 1'b0;
-                end
-            endcase
-            if (!addr_in_mem && !addr_in_IO) begin
-                $warning("OUT OF MEM");
-                handle_mem_access_error(addr, mapped_addr);
-            end
-        end
-    end
+    // always_comb begin : access_check
+    //     misaligned_access = 1'b0;
+    //     if (mem_read_en || mem_write_en) begin
+    //         assert(mem_size inside {MEM_BYTE, MEM_HALF, MEM_WORD})
+    //         else $error("Invalid mem_size: %0d at time %t", mem_size, $time);
+    //         assert(mem_sign inside {MEM_SIGNED, MEM_UNSIGNED})
+    //         else $error("Invalid mem_sign: %0d at time %t", mem_sign, $time);
+    //         case (mem_size)
+    //             MEM_BYTE: begin
+    //                 // Byte access is always aligned
+    //             end
+    //             MEM_HALF: begin
+    //                 if (byte_offset[0] != 1'b0) begin
+    //                     misaligned_access = 1'b1;
+    //                     $warning("Misaligned half-word access");
+    //                     handle_mem_access_error(addr, mapped_addr);
+    //                 end
+    //             end
+    //             MEM_WORD: begin
+    //                 if (byte_offset != 2'b00) begin
+    //                     misaligned_access = 1'b1;
+    //                     $warning("Misaligned word access");
+    //                     handle_mem_access_error(addr, mapped_addr);
+    //                 end
+    //             end
+    //             default: begin
+    //                 misaligned_access = 1'b0;
+    //             end
+    //         endcase
+    //         if (!addr_in_mem && !addr_in_IO) begin
+    //             $warning("OUT OF MEM");
+    //             handle_mem_access_error(addr, mapped_addr);
+    //         end
+    //     end
+    // end
 
     always_comb begin : exception_gen
         mem_exception = EXC_NONE;

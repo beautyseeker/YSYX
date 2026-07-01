@@ -29,14 +29,15 @@ module ROM #(parameter DATA_WIDTH = 32, SIZE=1024)(
         end
     end
 
-
+    localparam THRESHOLD = 4'b1010;
+    logic random = (LFSR < THRESHOLD);
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             rdata <= 32'h0000_0013;
             instValid <= 1'b0;
         end 
         else begin
-            if(addrValid) begin
+            if(addrValid && random) begin
                 rdata <= MEM[raddr];
                 instValid <= 1'b1;
             end else begin

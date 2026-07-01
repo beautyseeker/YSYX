@@ -28,16 +28,30 @@ module RAM #(parameter DATA_WIDTH = 32, SIZE=1024) (
         $readmemh(path, MEM, 0);
     end
 
+    logic [3:0] LFSR;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            LFSR <= 4'b1; // 非零初始状态
+        end else begin
+            LFSR <= {LFSR[2:0], LFSR[3] ^ LFSR[2]};
+        end
+    end
+
     always_ff @(posedge clk) begin
         if(reqValid) begin
             if(wen) begin
-                MEM[addr] <= (MEM[addr] & ~full_mask) | (wdata & full_mask);
-                respValid <= 1'b1;
+                if(LFSR < 4'b0100) begin
+                    MEM[addr] <= (MEM[addr] & ~full_mask) | (wdata & full_mask);
+                    respValid <= 1'b1;
+                end
             end
             
             else begin
-                rdata <= (MEM[addr]);
-                respValid <= 1'b1;
+                if(LFSR < 4'b1010) begin
+                    rdata <= (MEM[addr]);
+                    respValid <= 1'b1;
+                end
             end
         end
         else

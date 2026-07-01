@@ -78,36 +78,38 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
         end
     end
 
-    enum logic [1:0] {IDLE, WAIT} current, next;
+    enum logic [1:0] {FETCH, WAIT, DONE} current, next;
     logic instValid;
 
     always_comb begin : state_logic
         next = current;
         case(current)
-            IDLE: begin
-                next = WAIT;
+            FETCH: begin  // 取指中
+                if(instValid) next = WAIT;
             end
-            WAIT: begin
+            WAIT: begin  // 取指成功待响应
                 if(idu_ready) begin
-                    next = IDLE;
+                    next = DONE;
                 end
             end
+            DONE:  // 取指成功已响应，握手成功
+                next = FETCH;
             default: begin
-                next = IDLE;
+                next = FETCH;
             end
         endcase
     end
 
     always_ff @(posedge clk, negedge rst_n) begin : state_ff
         if(!rst_n)
-            current <= IDLE;
+            current <= FETCH;
         else
             current <= next;
     end
 
     logic fire;
-    assign ifu_valid = (current == WAIT);
-    assign fire = ifu_valid && idu_ready;
+    assign ifu_valid = instValid && (current == WAIT); // 只要指令被取出，且等待下游处理，就始终拉高指令合法信号
+    assign fire = current == DONE;  // 合法的指令信号得到了下游响应，拉高握手信号
 
     always_ff @(posedge clk, negedge rst_n) begin : IF_pipeline
         if(!rst_n) begin
