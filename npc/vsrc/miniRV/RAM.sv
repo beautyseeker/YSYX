@@ -41,18 +41,25 @@ module RAM #(parameter DATA_WIDTH = 32, SIZE=1024) (
     always_ff @(posedge clk) begin
         if(reqValid) begin
             if(wen) begin
-                if(LFSR < 4'b0100) begin
+                if(LFSR > 4'b1000) begin
                     MEM[addr] <= (MEM[addr] & ~full_mask) | (wdata & full_mask);
                     respValid <= 1'b1;
+                end
+                else begin
+                    respValid <= 1'b0;
                 end
             end
             
             else begin
-                if(LFSR < 4'b1010) begin
+                if(LFSR > 4'b0010) begin
                     rdata <= (MEM[addr]);
                     respValid <= 1'b1;
                 end
+                else begin
+                    respValid <= 1'b0;
+                end
             end
+
         end
         else
             respValid <= 1'b0;

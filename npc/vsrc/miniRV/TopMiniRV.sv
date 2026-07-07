@@ -28,40 +28,17 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 1
     Ctrl_sig_t ctrl_sig;
     except_cause if_exception, id_exception, ex_exception, mem_exception, exception;
     logic idu_ready;
-    always_comb begin : exception_arbiter
-        // 简单的优先级仲裁：IF > ID > EX > MEM
-        if (if_exception != EXC_NONE) begin
-            exception = if_exception;
-        end else if (id_exception != EXC_NONE) begin
-            exception = id_exception;
-        end else if (ex_exception != EXC_NONE) begin
-            exception = ex_exception;
-        end else if (mem_exception != EXC_NONE) begin
-            exception = mem_exception;
-        end else begin
-            exception = EXC_NONE;
-        end
-        
-    end
-
     logic ifu_valid;
 
     IFU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH), .RESET_VEC(RESET_VEC)) ifu (
         .clk(clk),
         .rst_n(rst_n),
-        .ctrl_sig(ctrl_sig),
-        .ALU_result(alu_result),
-        .ALU_zero(ALU_zero),
-        .PC_rel_imm(imm_ext),
-        .CSR_tvec(csr_bundle.CSR_tvec), // 由CSRFile提供
-        .CSR_epc(csr_bundle.CSR_epc), // 由CSRFile提供
         .idu_ready(idu_ready),
 
         .PC_current(PC_current),
         .PC_next(PC_next),
         .instruction(instruction),
-        .ifu_valid(ifu_valid),
-        .IF_exception(if_exception)
+        .ifu_valid(ifu_valid)
     );
     assign fire = ifu_valid && idu_ready;
 
@@ -76,8 +53,7 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 1
         .rd_addr(Rd_addr),
         .imm(imm_ext),
         .ctrl_sig(ctrl_sig),
-        .idu_ready(idu_ready),
-        .ID_exception(id_exception)
+        .idu_ready(idu_ready)
     );
 
     RegisterFile #(.DATA_WIDTH(DATA_WIDTH), .REG_COUNT(REG_COUNT)) regfile (
@@ -89,10 +65,11 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 1
         .rs1_data(Rs1_data),
         .rs2_data(Rs2_data),
         .write_data(Rd_data),
-        .reg_write_en(ctrl_sig.reg_write_en),
+        .reg_write_en(ctrl_sig.reg_write_en && fire),
         .gpr(gpr)
     );
 
+    logic [DATA_WIDTH-1:0] alu_a;
     logic [DATA_WIDTH-1:0] alu_b;
     always_comb begin : ALU_b_src_sel
         case(ctrl_sig.ALU_b_src_sel)
@@ -100,13 +77,20 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 1
             B_SRC_IMM: alu_b = imm_ext;
             default: alu_b = 'x; // 不应该发生
         endcase
-        assert (ctrl_sig.ALU_b_src_sel inside {B_SRC_REG, B_SRC_IMM})
+        assert (ctrl_sig.ALU_b_src_sel inside {B_SRC_REG, B_SRC_IMM, B_SRC_PC})
         else $error("Invalid ALU_b_src_sel: %0d at time %t", ctrl_sig.ALU_b_src_sel, $time);
     end
 
-    // alu_a仅在opcode为AUIPC时使用PC_current，否则为Rs1_data
-    logic [DATA_WIDTH-1:0] alu_a;
-    assign alu_a = ctrl_sig.ALU_a_src_sel == A_SRC_PC ? DATA_WIDTH'($signed(PC_current)) : Rs1_data;
+    always_comb begin : ALU_a_src_sel
+        case(ctrl_sig.ALU_a_src_sel)
+            A_SRC_REG: alu_a = Rs1_data;
+            A_SRC_IMM: alu_a = imm_ext;
+            A_SRC_PC: alu_a = $unsigned(PC_current);
+            default: alu_a = 'x; // 不应该发生
+        endcase
+        assert (ctrl_sig.ALU_a_src_sel inside {A_SRC_REG, A_SRC_IMM, A_SRC_PC})
+        else $error("Invalid ALU_a_src_sel: %0d at time %t", ctrl_sig.ALU_a_src_sel, $time);
+    end
 
     EXU #(.DATA_WIDTH(DATA_WIDTH)) exu (
         .alu_a(alu_a),
@@ -149,9 +133,14 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 1
     WBU #(.XLEN(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH)) wbu (
         .alu_result(alu_result),
         .mem_load_data(mem_load_data),
-        .WB_sel(ctrl_sig.WB_sel),
+        .ctrl_sig(ctrl_sig),
         .PC_current(PC_current),
+        .PC_rel_imm(imm_ext),
+        .CSR_tvec(csr_bundle.CSR_tvec),
+        .CSR_epc(csr_bundle.CSR_epc),
+        .instruction(instruction),
         .CSR_data(CSR_reg),
-        .WB_data(Rd_data)
+        .WB_data(Rd_data),
+        .PC_next(PC_next)
     );
 endmodule

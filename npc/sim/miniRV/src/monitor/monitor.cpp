@@ -44,12 +44,14 @@ void print_statistic(Simlator* cpu) {
 void print_trap_state(Simlator* cpu, int state) {
   auto stat = cpu->get_statistic();
     if(state == 0) {
-        printf(ANSI_FMT("[%ld] HIT A GOOD TRAP!\n", ANSI_FG_GREEN), stat->inst_nr);
+        printf(ANSI_FMT("program %s exec [%ld] inst_nr HIT A GOOD TRAP!\n", ANSI_FG_GREEN), 
+        cpu->get_img_name(), stat->inst_nr);
         cpu->set_state(SimState::END);
     } else {
-        printf(ANSI_FMT("[%ld] HIT A BAD TRAP!\n", ANSI_FG_RED), 
-        stat->inst_nr);
+        printf(ANSI_FMT("program %s exec [%ld] inst_nr HIT A BAD TRAP!\n", ANSI_FG_RED), 
+        cpu->get_img_name(), stat->inst_nr);
         cpu->set_state(SimState::ABORT);
+        exit(-1);
     }
 }
 

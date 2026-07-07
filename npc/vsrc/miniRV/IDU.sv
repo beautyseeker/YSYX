@@ -19,15 +19,14 @@ module IDU #(parameter DATA_WIDTH = 32, REG_ADDR_WIDTH = 5)
     // 控制信号输出
     output logic [DATA_WIDTH-1:0] imm, // 经过扩展的最终立即数
     output Ctrl_sig_t ctrl_sig,
-    output logic idu_ready,
-    output except_cause ID_exception
+    output logic idu_ready
 );
 
 // inst为非访存指令时,idu_ready = 1'b1，当前周期就完成译码并就绪
 // inst为访存指令时,idu_ready = lsu_ready，等待LSU完成访存操作
 
     logic is_access_mem;
-    assign is_access_mem = inst[6:0] inside {7'b0000011, 7'b0100011};
+    assign is_access_mem = ifu_valid && inst[6:0] inside {7'b0000011, 7'b0100011};
     assign idu_ready = is_access_mem ? lsu_ready : 1'b1;
 
 localparam logic ENABLE = 1'b1;
@@ -88,14 +87,10 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
             default:
                 imm = {DATA_WIDTH{1'b0}};
         endcase
-        if(!ifu_valid) begin
-            imm = {DATA_WIDTH{1'b0}};
-        end
     end
 
     always_comb begin : CtrlGen
         ctrl_sig = DEFAULT_CTRL_SIG;
-        ID_exception = EXC_NONE;
         case(opcode)
             7'b0110011: begin : reg_op
                 ctrl_sig.reg_write_en = ENABLE;
@@ -202,7 +197,6 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                         if (inst == 32'h00000073) begin // ECALL
                             ctrl_sig.PC_sel = PC_TRAP_ENT;
                             ctrl_sig.jmp_en = ENABLE;
-                            ID_exception = EXC_ECALL_M;
                         end else if (inst == 32'h00100073) begin // EBREAK
                             $display("EBREAK encountered at time %t. Simulation will stop.", $time);
                             handle_sys_brk();

@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
-[*] Wed Jul  1 11:19:24 2026
+[*] Mon Jul  6 13:07:10 2026
 [*]
 [dumpfile] "/home/passion/ysyx-workbench/npc/waveform.vcd"
-[dumpfile_mtime] "Wed Jul  1 10:49:31 2026"
-[dumpfile_size] 138806
+[dumpfile_mtime] "Mon Jul  6 13:07:03 2026"
+[dumpfile_size] 58904195
 [savefile] "/home/passion/ysyx-workbench/npc/config.gtkw"
-[timestart] 292
+[timestart] 7
 [size] 3776 2081
 [pos] -1 -1
-*-1.570997 310 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-1.570997 10 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] TOP.
 [treeopen] TOP.top_TopMiniRV.
 [treeopen] TOP.top_TopMiniRV.ifu.
@@ -17,7 +17,7 @@
 [sst_width] 297
 [signals_width] 410
 [sst_expanded] 1
-[sst_vpaned_height] 607
+[sst_vpaned_height] 591
 @28
 TOP.clk
 TOP.rst_n
@@ -27,8 +27,11 @@ TOP.rst_n
 @22
 TOP.top_TopMiniRV.PC_current[31:0]
 TOP.top_TopMiniRV.PC_next[31:0]
-TOP.top_TopMiniRV.alu_result[31:0]
 TOP.top_TopMiniRV.instruction[31:0]
+TOP.top_TopMiniRV.exu.ALU_op[3:0]
+TOP.top_TopMiniRV.exu.alu_a[31:0]
+TOP.top_TopMiniRV.exu.alu_b[31:0]
+TOP.top_TopMiniRV.alu_result[31:0]
 @200
 -
 -
@@ -58,25 +61,20 @@ TOP.top_TopMiniRV.lsu.word_idx[21:0]
 TOP.top_TopMiniRV.lsu.addr_in_mem
 @200
 -
--
-@22
-TOP.top_TopMiniRV.ifu.rom.LFSR[3:0]
+@29
+TOP.top_TopMiniRV.wbu.is_jal
 @200
+-
 -
 @28
-TOP.top_TopMiniRV.ifu.rom.instValid
 TOP.top_TopMiniRV.ifu.current[1:0]
 TOP.top_TopMiniRV.ifu.next[1:0]
-TOP.top_TopMiniRV.ifu.rom.random
 @200
 -
-@201
 -
 @22
 TOP.top_TopMiniRV.idu.rs1_addr[3:0]
 TOP.top_TopMiniRV.idu.immB[12:0]
-@28
-TOP.top_TopMiniRV.ifu.is_jal
 @200
 -
 @22

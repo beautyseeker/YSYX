@@ -33,68 +33,54 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_00
     assign mapped_addr = addr - PMEM_BASE; // 将访问地址映射到内存地址空间
 
     logic [ADDR_WIDTH-1-ALIGNED_WIDTH:0] word_idx;
-    logic [7:0] byte_data;
-    logic [15:0] half_data;
-    logic [31:0] word_data;
     logic [ALIGNED_WIDTH-1:0] byte_offset;
     logic misaligned_access;
 
     logic addr_in_mem;
     logic addr_in_IO;
-    assign addr_in_mem = (addr >= PMEM_BASE) && (addr < PMEM_BASE + PMEM_SIZE);
+    assign addr_in_mem = (addr >= PMEM_BASE) && (addr < (PMEM_BASE + PMEM_SIZE));
     assign addr_in_IO = addr inside {SERIAL_ADDR, RTC_ADDR, RTC_ADDR+BYTES_PER_WORD};
     assign byte_offset = mapped_addr[ALIGNED_WIDTH-1:0];
     assign word_idx = mapped_addr[ADDR_WIDTH-1:ALIGNED_WIDTH]; // 4字节对齐地址
 
-    // always_comb begin : access_check
-    //     misaligned_access = 1'b0;
-    //     if (mem_read_en || mem_write_en) begin
-    //         assert(mem_size inside {MEM_BYTE, MEM_HALF, MEM_WORD})
-    //         else $error("Invalid mem_size: %0d at time %t", mem_size, $time);
-    //         assert(mem_sign inside {MEM_SIGNED, MEM_UNSIGNED})
-    //         else $error("Invalid mem_sign: %0d at time %t", mem_sign, $time);
-    //         case (mem_size)
-    //             MEM_BYTE: begin
-    //                 // Byte access is always aligned
-    //             end
-    //             MEM_HALF: begin
-    //                 if (byte_offset[0] != 1'b0) begin
-    //                     misaligned_access = 1'b1;
-    //                     $warning("Misaligned half-word access");
-    //                     handle_mem_access_error(addr, mapped_addr);
-    //                 end
-    //             end
-    //             MEM_WORD: begin
-    //                 if (byte_offset != 2'b00) begin
-    //                     misaligned_access = 1'b1;
-    //                     $warning("Misaligned word access");
-    //                     handle_mem_access_error(addr, mapped_addr);
-    //                 end
-    //             end
-    //             default: begin
-    //                 misaligned_access = 1'b0;
-    //             end
-    //         endcase
-    //         if (!addr_in_mem && !addr_in_IO) begin
-    //             $warning("OUT OF MEM");
-    //             handle_mem_access_error(addr, mapped_addr);
-    //         end
-    //     end
-    // end
+    // 仅在本拍确实执行 load/store 且 IFU 指令有效时检查；addr 在非访存拍只是 ALU 结果
+    logic mem_access_valid;
+    assign mem_access_valid = (mem_read_en || mem_write_en);
 
-    always_comb begin : exception_gen
+    always_comb begin : access_check
+        misaligned_access = 1'b0;
         mem_exception = EXC_NONE;
-        if (misaligned_access) begin
-            mem_exception = EXC_ACCESS_MISALIGNED;
-        end else if (!addr_in_mem && !addr_in_IO) begin
-            mem_exception = EXC_ACCESS_OUT_OF_RANGE;
-        end else begin
-            mem_exception = EXC_NONE;
+
+        if (mem_access_valid) begin
+            case (mem_size)
+                MEM_HALF: begin
+                    if (byte_offset[0] != 1'b0) begin
+                        misaligned_access = 1'b1;
+                    end
+                end
+                MEM_WORD: begin
+                    if (byte_offset != 2'b00) begin
+                        misaligned_access = 1'b1;
+                    end
+                end
+                default: ;
+            endcase
+
+            if (misaligned_access) begin
+                // LSU 用 byte_mask 已能正确完成非对齐访存，仅记录异常码供 trap 使用，不 abort 仿真
+                $warning("MISALIGNED access at addr=0x%08x mapped=0x%08x", addr, mapped_addr);
+                mem_exception = EXC_ACCESS_MISALIGNED;
+                handle_mem_access_error(addr, mapped_addr);
+            end else if (!addr_in_mem && !addr_in_IO) begin
+                $warning("OUT OF MEM at addr=0x%08x mapped=0x%08x", addr, mapped_addr);
+                mem_exception = EXC_ACCESS_OUT_OF_RANGE;
+                handle_mem_access_error(addr, mapped_addr);
+            end
         end
     end
 
 
-logic respValid;
+logic RAM_respValid;
 logic [DATA_WIDTH-1:0] rdata;
 logic [3:0] byte_mask;
 logic [7:0] target_byte;
@@ -132,19 +118,22 @@ always_comb begin : mask_and_store_gen
     endcase
 end
 
+    logic RAM_reqValid;
+    assign RAM_reqValid = (mem_read_en || mem_write_en) && addr_in_mem;
     // 连接到 RAM 例化口
     RAM #(.DATA_WIDTH(DATA_WIDTH), .SIZE(1<<(ADDR_WIDTH-ALIGNED_WIDTH))) ram (
         .clk(clk),
         .rst_n(rst_n),
         .addr(word_idx),
-        .reqValid((mem_read_en || mem_write_en)),
+        .reqValid(RAM_reqValid),
         .wen(mem_write_en),
-        .wdata(store_data),
+        .wdata(store_data << (byte_offset * 8)),
         .mask(byte_mask),
         .rdata(rdata),
-        .respValid(respValid)
+        .respValid(RAM_respValid)
     );
-    assign lsu_ready = respValid;
+    assign lsu_ready = (RAM_respValid && RAM_reqValid) ||
+    (serial_respValid && serial_reqValid);
 
     // logic [63:0] uptime;
     //异步读取数据
@@ -157,13 +146,18 @@ end
     //         endcase
     //     end
     // end
+    logic serial_reqValid;
+    assign serial_reqValid = mem_write_en && addr == SERIAL_ADDR;
+    logic serial_respValid;
 
     always_ff @(posedge clk) begin : mem_write
-        if (mem_write_en) begin
-            if (addr == SERIAL_ADDR) begin
-                mmio_write(addr, store_data, 8'hff);
+        if (serial_reqValid) begin
+            mmio_write(addr, store_data, 8'hff);
+            serial_respValid <= 1'b1;
+        end
+        else begin
+            serial_respValid <= 1'b0;
         end
     end
-end
 
 endmodule

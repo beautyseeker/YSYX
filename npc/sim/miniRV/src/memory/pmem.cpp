@@ -62,7 +62,7 @@ extern "C" {
 
     void handle_sys_brk() {
         auto cpu = Simlator::instance;
-        print_trap_state(cpu, 0);
+        print_trap_state(cpu, cpu->get_gpr(10));
         cpu->set_state(SimState::END);
     }
 }

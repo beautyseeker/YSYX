@@ -19,25 +19,55 @@ module ROM #(parameter DATA_WIDTH = 32, SIZE=1024)(
         $readmemh(path, MEM, 0);
     end
 
-    logic [3:0] LFSR;
+    // enum logic [1:0] {FETCH, WAIT} current, next;
 
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            LFSR <= 4'b1; // 非零初始状态
-        end else begin
-            LFSR <= {LFSR[2:0], LFSR[3] ^ LFSR[2]};
-        end
-    end
+    // always_ff @(posedge clk, negedge rst_n) begin : state_ff
+    //     if(!rst_n)
+    //         current <= FETCH;
+    //     else
+    //         current <= next;
+    // end
 
-    localparam THRESHOLD = 4'b1010;
-    logic random = (LFSR < THRESHOLD);
+    // always_comb begin : state_logic
+    //     next = current;
+    //     case(current)
+    //         FETCH: begin  // 取指中
+    //             if(addrValid) 
+    //                 next = WAIT;
+    //         end
+    //         WAIT: begin  // 取指成功待响应
+    //             if(ready) begin
+    //                 next = FETCH;
+    //             end
+    //         end
+    //         default: begin
+    //             next = FETCH;
+    //         end
+    //     endcase
+    // end
+
+    // assign instValid = (current == WAIT);
+
+    // logic [3:0] LFSR;
+    // logic random;
+
+    // always_ff @(posedge clk or negedge rst_n) begin
+    //     if (!rst_n) begin
+    //         LFSR <= 4'b1; // 非零初始状态
+    //     end else begin
+    //         LFSR <= {LFSR[2:0], LFSR[3] ^ LFSR[2]};
+    //     end
+    // end
+
+    // localparam THRESHOLD = 4'b1010;
+    // assign random = (LFSR < THRESHOLD);
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             rdata <= 32'h0000_0013;
-            instValid <= 1'b0;
         end 
         else begin
-            if(addrValid && random) begin
+            if(addrValid) begin
                 rdata <= MEM[raddr];
                 instValid <= 1'b1;
             end else begin
