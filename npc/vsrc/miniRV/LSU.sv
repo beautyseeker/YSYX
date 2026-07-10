@@ -25,7 +25,6 @@ module LSU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 27, PMEM_BASE = 32'h8000_00
     localparam BYTES_PER_WORD = DATA_WIDTH / 8;
     localparam ALIGNED_WIDTH = $clog2(BYTES_PER_WORD);
     localparam PMEM_SIZE /*verilator public*/ = 1 << ADDR_WIDTH;
-    localparam CONFIG_BASE /*verilator public*/ = PMEM_BASE;
     localparam SERIAL_ADDR = 32'h1000_0000; // 串口MMIO地址
     localparam RTC_ADDR = 32'h1000_0048; // 定时器MMIO地址
 
@@ -118,22 +117,107 @@ always_comb begin : mask_and_store_gen
     endcase
 end
 
-    logic RAM_reqValid;
-    assign RAM_reqValid = (mem_read_en || mem_write_en) && addr_in_mem;
+    logic reqValid;
+    assign reqValid = (mem_read_en || mem_write_en);
     // 连接到 RAM 例化口
-    RAM #(.DATA_WIDTH(DATA_WIDTH), .SIZE(1<<(ADDR_WIDTH-ALIGNED_WIDTH))) ram (
-        .clk(clk),
-        .rst_n(rst_n),
-        .addr(word_idx),
-        .reqValid(RAM_reqValid),
-        .wen(mem_write_en),
-        .wdata(store_data << (byte_offset * 8)),
-        .mask(byte_mask),
-        .rdata(rdata),
-        .respValid(RAM_respValid)
-    );
-    assign lsu_ready = (RAM_respValid && RAM_reqValid) ||
-    (serial_respValid && serial_reqValid);
+    // RAM #(.DATA_WIDTH(DATA_WIDTH), .SIZE(1<<(ADDR_WIDTH-ALIGNED_WIDTH))) ram (
+    //     .clk(clk),
+    //     .rst_n(rst_n),
+    //     .addr(word_idx),
+    //     .reqValid(RAM_reqValid),
+    //     .wen(mem_write_en),
+    //     .wdata(store_data << (byte_offset * 8)),
+    //     .mask(byte_mask),
+    //     .rdata(rdata),
+    //     .respValid(RAM_respValid)
+    // );
+    assign lsu_ready = reqValid && respValid;
+
+    logic [DATA_WIDTH-1:0] MEM [0:1<<(ADDR_WIDTH-ALIGNED_WIDTH)-1];
+    logic [DATA_WIDTH-1:0] full_mask;
+    assign full_mask = {
+        {8{byte_mask[3]}}, 
+        {8{byte_mask[2]}}, 
+        {8{byte_mask[1]}}, 
+        {8{byte_mask[0]}}
+    };
+
+    initial begin
+        string path = get_img_path();
+        $display("RAM initialized from: %s", path);
+        $readmemh(path, MEM, 0);
+    end
+
+    logic [3:0] cnt;
+    localparam LATENCY = 4'd2;
+    enum logic [1:0] {IDLE, BUSY, RESP} current, next;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n) begin
+            cnt <= 0;
+        end
+        else begin
+            cnt <= (current == BUSY) ? cnt + 1 : 0;
+        end
+    end
+
+    always_comb begin
+        case(current)
+            IDLE: begin
+                if(reqValid) begin
+                    next = BUSY;
+                end
+            end
+            BUSY: begin
+                if(cnt == LATENCY-1) begin
+                    next = RESP;
+                end
+            end
+            RESP: begin
+                next = IDLE;
+            end
+            default: begin
+                next = IDLE;
+            end
+        endcase
+    end
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n) begin
+            current <= IDLE;
+        end
+        else begin
+            current <= next;
+        end
+    end
+
+    logic respValid;
+    assign respValid = (current == RESP);
+    logic [DATA_WIDTH-1:0] wdata;
+    assign wdata = store_data << (byte_offset * 8);
+
+    always_ff @(posedge clk) begin
+        if(current == IDLE && reqValid) begin
+            if(mem_write_en) begin
+                if(addr_in_mem)
+                    MEM[word_idx] <= (MEM[word_idx] & ~full_mask) | (wdata & full_mask);
+                else if(addr_in_IO)
+                    mmio_write(addr, wdata, 8'hff);
+                else
+                    $error("RAM write: addr=0x%h, wdata=0x%h, mask=0x%h", addr, wdata, byte_mask);
+                    
+            end
+            else begin
+                if(addr_in_mem)
+                    rdata <= MEM[word_idx];
+                else if(addr_in_IO)
+                    // rdata <= mmio_read(addr);
+                    $display("MMIO read: addr=0x%h, rdata=0x%h", addr, mmio_read(addr));
+                else
+                    $error("RAM read: addr=0x%h, rdata=0x%h", addr, rdata);
+            end
+        end
+    end
 
     // logic [63:0] uptime;
     //异步读取数据
@@ -146,18 +230,18 @@ end
     //         endcase
     //     end
     // end
-    logic serial_reqValid;
-    assign serial_reqValid = mem_write_en && addr == SERIAL_ADDR;
-    logic serial_respValid;
+    // logic serial_reqValid;
+    // assign serial_reqValid = mem_write_en && addr == SERIAL_ADDR;
+    // logic serial_respValid;
 
-    always_ff @(posedge clk) begin : mem_write
-        if (serial_reqValid) begin
-            mmio_write(addr, store_data, 8'hff);
-            serial_respValid <= 1'b1;
-        end
-        else begin
-            serial_respValid <= 1'b0;
-        end
-    end
+    // always_ff @(posedge clk) begin : mem_write
+    //     if (serial_reqValid) begin
+    //         mmio_write(addr, store_data, 8'hff);
+    //         serial_respValid <= 1'b1;
+    //     end
+    //     else begin
+    //         serial_respValid <= 1'b0;
+    //     end
+    // end
 
 endmodule

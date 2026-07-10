@@ -43,7 +43,7 @@ void init_mem() {
     if (!lsu_ptr) { panic("LSU module is null!"); }
     
     // 安全获取内存
-    pmem = reinterpret_cast<uint8_t*>(&lsu_ptr->__PVT__ram__DOT__MEM[0]);
+    pmem = reinterpret_cast<uint8_t*>(&lsu_ptr->__PVT__MEM[0]);
     Log("physical memory area [" FMT_PADDR ", " FMT_PADDR "]", PMEM_LEFT, PMEM_RIGHT);
     Log("Memory Trace: %s", MUXDEF(CONFIG_MTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
 }
