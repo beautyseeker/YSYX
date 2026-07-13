@@ -37,7 +37,7 @@ extern "C" {
         return 0;
     }
 
-    void mmio_write(uint32_t addr, int data, uint8_t wmask) {
+    void mmio_write(uint32_t addr, int data, uint32_t wmask) {
         if (addr == SERIAL_ADDR) {
             IOLOG("CPP MMIO Write to SERIAL address: 0x%08x, data: 0x%08x, wmask: 0x%02x\n",
                 addr, data, wmask);

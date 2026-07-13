@@ -33,5 +33,5 @@
 extern "C" void handle_sys_brk();
 extern "C" void handle_mem_access_error(uint32_t pc, uint32_t mapped_addr);
 extern "C" const char* get_img_path();
-extern "C" void mmio_write(uint32_t io_addr, int data, uint8_t wmask);
+extern "C" void mmio_write(uint32_t io_addr, int data, uint32_t wmask);
 extern "C" uint64_t mmio_read(uint32_t io_addr);

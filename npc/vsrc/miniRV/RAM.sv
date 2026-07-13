@@ -1,21 +1,26 @@
-module RAM #(parameter DATA_WIDTH = 32, SIZE=1024) (
+module RAM #(parameter XLEN = 32, DEPTH=256) (
     input clk,
     input rst_n,
 
-    input  logic  [ADDR_WIDTH-1:0] addr,
+    input  logic  [XLEN-1:0]       addr,
     input  logic                   reqValid,
     input  logic                   wen,
-    input  logic  [DATA_WIDTH-1:0] wdata,
-    input  logic  [BYTES-1:0]      mask,
+    input  logic  [XLEN-1:0] wdata,
+    input  logic  [XLEN/8-1:0]     mask,
+    input  logic                   respReady,
 
-    output logic  [DATA_WIDTH-1:0] rdata,
-    output logic                   respValid
+    output logic  [XLEN-1:0] rdata,
+    output logic                   respValid,
+    output logic                   reqReady,
+    output logic   [1:0]           err
 );
 
-    localparam ADDR_WIDTH = $clog2(SIZE);
-    localparam BYTES = DATA_WIDTH / 8;
-    logic [DATA_WIDTH-1:0] MEM [0:SIZE-1];
-    logic [DATA_WIDTH-1:0] full_mask;
+    localparam BYTES = XLEN / 8;
+    localparam BASE = 32'h8000_0000;
+    localparam ADDR_WIDTH = $clog2(DEPTH);
+    localparam SIZE = DEPTH * BYTES;
+    logic [XLEN-1:0] MEM [0:DEPTH-1];
+    logic [XLEN-1:0] full_mask;
     assign full_mask = {
         {8{mask[3]}}, 
         {8{mask[2]}}, 
@@ -23,28 +28,11 @@ module RAM #(parameter DATA_WIDTH = 32, SIZE=1024) (
         {8{mask[0]}}  
     };
 
-    // logic [DATA_WIDTH-1:0] addr_r;
-    // logic [DATA_WIDTH-1:0] wdata_r;
-    // logic [BYTES-1:0] mask_r;
-    // logic wen_r;
-    // logic reqValid_r;
-
-    // always_ff @(posedge clk or negedge rst_n) begin
-    //     if(!rst_n) begin
-    //         addr_r <= 0;
-    //         wdata_r <= 0;
-    //         mask_r <= 0;
-    //         wen_r <= 0;
-    //         reqValid_r <= 0;
-    //     end
-    //     else begin
-    //         addr_r <= addr;
-    //         wdata_r <= wdata;
-    //         mask_r <= mask;
-    //         wen_r <= wen;
-    //         reqValid_r <= reqValid;
-    //     end
-    // end
+    logic [ADDR_WIDTH-1:0] mem_idx;
+    assign mem_idx = (addr - BASE) >> 2;
+    logic addr_in_mem;
+    assign addr_in_mem = (addr >= BASE) && (addr < BASE + SIZE);
+    assign err = addr_in_mem ? 2'b00 : 2'b01;
 
     initial begin
         string path = get_img_path();
@@ -88,7 +76,8 @@ module RAM #(parameter DATA_WIDTH = 32, SIZE=1024) (
                 end
             end
             RESP: begin
-                next = IDLE;
+                if(respReady)
+                    next = IDLE;
             end
             default: begin
                 next = IDLE;
@@ -106,16 +95,16 @@ module RAM #(parameter DATA_WIDTH = 32, SIZE=1024) (
     end
 
     assign respValid = (current == RESP);
+    assign reqReady = (current == IDLE);
 
     always_ff @(posedge clk) begin
         if(current == IDLE && reqValid) begin
             if(wen) begin
-                MEM[addr] <= (MEM[addr] & ~full_mask) | (wdata & full_mask);
-                $display("RAM write: addr=0x%h, wdata=0x%h, mask=0x%h", addr, wdata, mask);
+                MEM[mem_idx] <= 
+                (MEM[mem_idx] & ~full_mask) | (wdata & full_mask);
             end
             else begin
-                rdata <= MEM[addr];
-                $display("RAM read: addr=0x%h, rdata=0x%h", addr, rdata);
+                rdata <= MEM[mem_idx];
             end
         end
     end
