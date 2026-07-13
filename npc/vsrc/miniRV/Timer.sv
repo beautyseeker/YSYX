@@ -12,7 +12,7 @@ module Timer #(parameter XLEN = 32) (
     output logic [31:0] rdata,
     output logic        respValid,
     output logic        reqReady,
-    output logic        err
+    output logic [1:0]  err
 );
 
     enum logic [1:0] {IDLE, RESP} current, next;

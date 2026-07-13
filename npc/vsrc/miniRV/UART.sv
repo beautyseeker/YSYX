@@ -12,7 +12,7 @@ module UART #(parameter XLEN = 32) (
     output logic [31:0] rdata,
     output logic        respValid,
     output logic        reqReady,
-    output logic        err
+    output logic [1:0]  err
 );
 
     logic [XLEN-1:0] full_mask;
@@ -53,6 +53,7 @@ module UART #(parameter XLEN = 32) (
 
     assign respValid = (current == RESP);
     assign reqReady = (current == IDLE);
+    assign err = 2'b00; 
 
     always_ff @(posedge clk) begin
         if(current == IDLE && reqValid) begin

@@ -9,7 +9,6 @@ module CSRFile #(parameter XLEN=32)
     input logic [XLEN-1:0] CSR_RS1,
     input logic [XLEN-1:0] CSR_imm,
     input logic [XLEN-1:0] PC_current,
-    input logic [XLEN-1:0] EXCPT_code,
     input logic csr_write_en,
 
     output logic [XLEN-1:0] csr_read_out,
@@ -101,7 +100,7 @@ module CSRFile #(parameter XLEN=32)
         else begin
             if(ctrl_sig.PC_sel == PC_TRAP_ENT) begin : internal_trap
                 mepc <= PC_current; // 保存异常发生时的PC
-                mcause <= EXCPT_code; // 保存异常原因
+                // mcause <= EXCPT_code; // 保存异常原因
                 mstatus <= mstatus & ~32'h8; // 设置MIE位为0关闭中断，屏蔽后续非高优先级中断
                 // dump_all();
                 // $display("hard trap occurred at PC=0x%08h with cause=0x%08h\n", PC_current, EXCPT_code);

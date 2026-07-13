@@ -1,9 +1,8 @@
 #include "common.h"
 #include "monitor.h"
-#include "Vtop_TopMiniRV_top_TopMiniRV.h"
-#include "Vtop_TopMiniRV_LSU__A18.h"
+#include "Vtop_TopMiniRV.h"
+#include "Vtop_TopMiniRV___024root.h"
 
-// static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
 static uint8_t* pmem = nullptr;
 
 uint8_t* guest_to_host(paddr_t paddr) { return pmem + paddr - CONFIG_MBASE; }
@@ -33,18 +32,14 @@ void init_mem() {
     auto cpu = Simlator::instance;
     if (!cpu) { panic("Simulator instance is null!"); }
     if (!cpu->top) { panic("cpu->top is null!"); }
-    
-    // 检查是否有 top_TopMiniRV
-    auto* top_ptr = cpu->top->top_TopMiniRV;
-    if (!top_ptr) { panic("top_TopMiniRV is null!"); }
-    
-    // 检查是否有 lsu (检查你的 Vtop_TopMiniRV.h 确认它是指针还是对象)
-    auto* lsu_ptr = top_ptr->lsu; 
-    if (!lsu_ptr) { panic("LSU module is null!"); }
-    
-    // 安全获取内存
-    pmem = reinterpret_cast<uint8_t*>(&lsu_ptr->__PVT__MEM[0]);
+
+    // Verilator 5: 顶层 Vtop_TopMiniRV，内部状态在 rootp (Vtop_TopMiniRV___024root)
+    auto* root = cpu->top->rootp;
+    if (!root) { panic("Verilator rootp is null!"); }
+
+    pmem = reinterpret_cast<uint8_t*>(&root->top_TopMiniRV__DOT__ram__DOT__MEM[0]);
     Log("physical memory area [" FMT_PADDR ", " FMT_PADDR "]", PMEM_LEFT, PMEM_RIGHT);
+    Log("pmem host ptr = %p (RAM.MEM)", pmem);
     Log("Memory Trace: %s", MUXDEF(CONFIG_MTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
 }
 
@@ -54,7 +49,7 @@ extern "C" {
     void handle_mem_access_error(uint32_t addr, uint32_t mapped_addr) {
         auto cpu = Simlator::instance;
         print_trap_state(cpu, -1);
-        SIMERROR("%s Memory access error at address: 0x%08x, mapped address: 0x%08x\n", 
+        SIMERROR("%s Memory access error at address: 0x%08x, mapped address: 0x%08x\n",
                 cpu->get_img_name(), addr, mapped_addr);
         cpu->set_state(SimState::ABORT);
         exit(-1);

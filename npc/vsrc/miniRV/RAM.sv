@@ -1,4 +1,4 @@
-module RAM #(parameter XLEN = 32, DEPTH=256) (
+module RAM #(parameter XLEN = 32, DEPTH=1024*1024) (
     input clk,
     input rst_n,
 
@@ -19,7 +19,7 @@ module RAM #(parameter XLEN = 32, DEPTH=256) (
     localparam BASE = 32'h8000_0000;
     localparam ADDR_WIDTH = $clog2(DEPTH);
     localparam SIZE = DEPTH * BYTES;
-    logic [XLEN-1:0] MEM [0:DEPTH-1];
+    logic [XLEN-1:0] MEM [0:DEPTH-1] /* verilator public_flat */;
     logic [XLEN-1:0] full_mask;
     assign full_mask = {
         {8{mask[3]}}, 
@@ -29,7 +29,7 @@ module RAM #(parameter XLEN = 32, DEPTH=256) (
     };
 
     logic [ADDR_WIDTH-1:0] mem_idx;
-    assign mem_idx = (addr - BASE) >> 2;
+    assign mem_idx = ADDR_WIDTH'((addr - BASE) >> 2);
     logic addr_in_mem;
     assign addr_in_mem = (addr >= BASE) && (addr < BASE + SIZE);
     assign err = addr_in_mem ? 2'b00 : 2'b01;
