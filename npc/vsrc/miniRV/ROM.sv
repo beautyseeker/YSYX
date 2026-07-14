@@ -1,17 +1,25 @@
 import "DPI-C" function string get_img_path();
 
-
-module ROM #(parameter DATA_WIDTH = 32, SIZE=1024)(
+module ROM #(parameter XLEN = 32, DEPTH=1024*1024)(
     input clk,
     input rst_n,
 
-    input  logic                   addrValid,
-    input  logic  [ADDR_WIDTH-1:0] raddr,
-    output logic  [DATA_WIDTH-1:0] rdata,
-    output logic                   instValid
+    SimpleBus_if.Slave bus
 );
-    localparam ADDR_WIDTH = $clog2(SIZE);
-    logic [DATA_WIDTH-1:0] MEM [0:SIZE-1];
+localparam BYTES = XLEN / 8;
+    localparam BASE = 32'h8000_0000;
+    localparam ADDR_WIDTH = $clog2(DEPTH);
+    localparam SIZE = DEPTH * BYTES;
+    logic [XLEN-1:0] MEM [0:DEPTH-1] /* verilator public_flat */;
+
+    logic [ADDR_WIDTH-1:0] rom_idx;
+    assign rom_idx = ADDR_WIDTH'((bus.addr - BASE) >> 2);
+
+    logic [$clog2(BYTES)-1:0] byte_idx;
+    logic addr_in_rom;
+    assign byte_idx = bus.addr[1:0];
+    assign addr_in_rom = bus.addr inside {[BASE : BASE + SIZE]};
+    assign bus.err = addr_in_rom && !bus.wen && byte_idx == 0 ? 2'b00 : 2'b10;
 
     initial begin
         string path = get_img_path();
@@ -19,61 +27,58 @@ module ROM #(parameter DATA_WIDTH = 32, SIZE=1024)(
         $readmemh(path, MEM, 0);
     end
 
-    // enum logic [1:0] {FETCH, WAIT} current, next;
-
-    // always_ff @(posedge clk, negedge rst_n) begin : state_ff
-    //     if(!rst_n)
-    //         current <= FETCH;
-    //     else
-    //         current <= next;
-    // end
-
-    // always_comb begin : state_logic
-    //     next = current;
-    //     case(current)
-    //         FETCH: begin  // 取指中
-    //             if(addrValid) 
-    //                 next = WAIT;
-    //         end
-    //         WAIT: begin  // 取指成功待响应
-    //             if(ready) begin
-    //                 next = FETCH;
-    //             end
-    //         end
-    //         default: begin
-    //             next = FETCH;
-    //         end
-    //     endcase
-    // end
-
-    // assign instValid = (current == WAIT);
-
-    // logic [3:0] LFSR;
-    // logic random;
-
-    // always_ff @(posedge clk or negedge rst_n) begin
-    //     if (!rst_n) begin
-    //         LFSR <= 4'b1; // 非零初始状态
-    //     end else begin
-    //         LFSR <= {LFSR[2:0], LFSR[3] ^ LFSR[2]};
-    //     end
-    // end
-
-    // localparam THRESHOLD = 4'b1010;
-    // assign random = (LFSR < THRESHOLD);
+    logic [3:0] LFSR;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            rdata <= 32'h0000_0013;
-        end 
-        else begin
-            if(addrValid) begin
-                rdata <= MEM[raddr];
-                instValid <= 1'b1;
-            end else begin
-                instValid <= 1'b0;
-            end
+            LFSR <= 4'b1; // 非零初始状态
+        end else begin
+            LFSR <= {LFSR[2:0], LFSR[3] ^ LFSR[2]};
+        end
+    end
 
+    logic [3:0] cnt;
+    localparam LATENCY = 4'd1;
+    enum logic [1:0] {IDLE, BUSY, RESP} current, next;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n) begin
+            cnt <= 0;
+        end
+        else begin
+            cnt <= (current == BUSY) ? cnt + 1 : 0;
+        end
+    end
+
+    always_comb begin
+        next = current;
+        unique case (current)
+            IDLE: if (bus.reqValid) next = BUSY;
+            BUSY: if (cnt == LATENCY - 1) next = RESP;
+            RESP: if (bus.respReady) next = IDLE;
+            default: next = IDLE;
+        endcase
+    end
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n) begin
+            current <= IDLE;
+        end
+        else begin
+            current <= next;
+        end
+    end
+
+    assign bus.respValid = (current == RESP);
+    assign bus.reqReady = (current == IDLE);
+
+    always_ff @(posedge clk) begin
+        if (current == IDLE && bus.reqValid) begin
+            if (bus.wen) begin
+                $error("Invalid ROM addr:%x does not support write", bus.addr);
+            end else begin
+                bus.rdata <= MEM[rom_idx];
+            end
         end
     end
 endmodule

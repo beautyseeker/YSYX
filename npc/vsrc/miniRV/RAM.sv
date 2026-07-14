@@ -1,18 +1,7 @@
-module RAM #(parameter XLEN = 32, DEPTH=1024*1024) (
-    input clk,
-    input rst_n,
-
-    input  logic  [XLEN-1:0]       addr,
-    input  logic                   reqValid,
-    input  logic                   wen,
-    input  logic  [XLEN-1:0] wdata,
-    input  logic  [XLEN/8-1:0]     mask,
-    input  logic                   respReady,
-
-    output logic  [XLEN-1:0] rdata,
-    output logic                   respValid,
-    output logic                   reqReady,
-    output logic   [1:0]           err
+module RAM #(parameter XLEN = 32, DEPTH = 1024*1024) (
+    input logic clk,
+    input logic rst_n,
+    SimpleBus_if.Slave bus
 );
 
     localparam BYTES = XLEN / 8;
@@ -22,17 +11,17 @@ module RAM #(parameter XLEN = 32, DEPTH=1024*1024) (
     logic [XLEN-1:0] MEM [0:DEPTH-1] /* verilator public_flat */;
     logic [XLEN-1:0] full_mask;
     assign full_mask = {
-        {8{mask[3]}}, 
-        {8{mask[2]}}, 
-        {8{mask[1]}}, 
-        {8{mask[0]}}  
+        {8{bus.mask[3]}},
+        {8{bus.mask[2]}},
+        {8{bus.mask[1]}},
+        {8{bus.mask[0]}}
     };
 
     logic [ADDR_WIDTH-1:0] mem_idx;
-    assign mem_idx = ADDR_WIDTH'((addr - BASE) >> 2);
+    assign mem_idx = ADDR_WIDTH'((bus.addr - BASE) >> 2);
     logic addr_in_mem;
-    assign addr_in_mem = (addr >= BASE) && (addr < BASE + SIZE);
-    assign err = addr_in_mem ? 2'b00 : 2'b01;
+    assign addr_in_mem = (bus.addr >= BASE) && (bus.addr < BASE + SIZE);
+    assign bus.err = addr_in_mem ? 2'b00 : 2'b10;
 
     initial begin
         string path = get_img_path();
@@ -64,24 +53,12 @@ module RAM #(parameter XLEN = 32, DEPTH=1024*1024) (
     end
 
     always_comb begin
-        case(current)
-            IDLE: begin
-                if(reqValid) begin
-                    next = BUSY;
-                end
-            end
-            BUSY: begin
-                if(cnt == LATENCY-1) begin
-                    next = RESP;
-                end
-            end
-            RESP: begin
-                if(respReady)
-                    next = IDLE;
-            end
-            default: begin
-                next = IDLE;
-            end
+        next = current;
+        unique case (current)
+            IDLE: if (bus.reqValid) next = BUSY;
+            BUSY: if (cnt == LATENCY - 1) next = RESP;
+            RESP: if (bus.respReady) next = IDLE;
+            default: next = IDLE;
         endcase
     end
 
@@ -94,18 +71,16 @@ module RAM #(parameter XLEN = 32, DEPTH=1024*1024) (
         end
     end
 
-    assign respValid = (current == RESP);
-    assign reqReady = (current == IDLE);
+    assign bus.respValid = (current == RESP);
+    assign bus.reqReady = (current == IDLE);
 
     always_ff @(posedge clk) begin
-        if(current == IDLE && reqValid) begin
-            if(wen) begin
-                MEM[mem_idx] <= 
-                (MEM[mem_idx] & ~full_mask) | (wdata & full_mask);
-            end
-            else begin
-                rdata <= MEM[mem_idx];
-            end
+        if (current == IDLE && bus.reqValid) begin
+            if (bus.wen)
+                MEM[mem_idx] <= (MEM[mem_idx] & ~full_mask) | (bus.wdata & full_mask);
+            else
+                bus.rdata <= MEM[mem_idx];
         end
     end
+
 endmodule

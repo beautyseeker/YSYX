@@ -1,44 +1,27 @@
+import "DPI-C" function void mmio_write(input int unsigned addr, input int data, input int unsigned mask);
+
 module UART #(parameter XLEN = 32) (
     input logic clk,
     input logic rst_n,
-
-    input logic [31:0] addr,
-    input logic [31:0] wdata,
-    input logic [3:0]  mask,
-    input logic        wen,
-    input logic        reqValid,
-    input logic        respReady,
-
-    output logic [31:0] rdata,
-    output logic        respValid,
-    output logic        reqReady,
-    output logic [1:0]  err
+    SimpleBus_if.Slave bus
 );
 
     logic [XLEN-1:0] full_mask;
     assign full_mask = {
-        {8{mask[3]}}, 
-        {8{mask[2]}}, 
-        {8{mask[1]}}, 
-        {8{mask[0]}}  
+        {8{bus.mask[3]}},
+        {8{bus.mask[2]}},
+        {8{bus.mask[1]}},
+        {8{bus.mask[0]}}
     };
 
     enum logic [1:0] {IDLE, RESP} current, next;
 
     always_comb begin
-        case(current)
-            IDLE: begin
-                if(reqValid) begin
-                    next = RESP;
-                end
-            end
-            RESP: begin
-                if(respReady)
-                    next = IDLE;
-            end
-            default: begin
-                next = IDLE;
-            end
+        next = current;
+        unique case (current)
+            IDLE: if (bus.reqValid) next = RESP;
+            RESP: if (bus.respReady) next = IDLE;
+            default: next = IDLE;
         endcase
     end
 
@@ -51,18 +34,16 @@ module UART #(parameter XLEN = 32) (
         end
     end
 
-    assign respValid = (current == RESP);
-    assign reqReady = (current == IDLE);
-    assign err = 2'b00; 
+    assign bus.respValid = (current == RESP);
+    assign bus.reqReady = (current == IDLE);
+    assign bus.err = 2'b00;
 
     always_ff @(posedge clk) begin
-        if(current == IDLE && reqValid) begin
-            if(wen) begin
-                mmio_write(addr, wdata, full_mask);
-            end
-            else begin
-                rdata <= 32'h0;
-            end
+        if (current == IDLE && bus.reqValid) begin
+            if (bus.wen)
+                mmio_write(bus.addr, bus.wdata, full_mask);
+            else
+                bus.rdata <= 32'h0;
         end
     end
 

@@ -1,36 +1,20 @@
+import "DPI-C" function longint unsigned mmio_read(input int unsigned addr);
+
 module Timer #(parameter XLEN = 32) (
     input logic clk,
     input logic rst_n,
-
-    input logic [31:0] addr,
-    input logic [31:0] wdata,
-    input logic [3:0]  mask,
-    input logic        wen,
-    input logic        reqValid,
-    input logic        respReady,
-
-    output logic [31:0] rdata,
-    output logic        respValid,
-    output logic        reqReady,
-    output logic [1:0]  err
+    SimpleBus_if.Slave bus
 );
 
     enum logic [1:0] {IDLE, RESP} current, next;
+    logic [63:0] rtc64;
 
     always_comb begin
-        case(current)
-            IDLE: begin
-                if(reqValid) begin
-                    next = RESP;
-                end
-            end
-            RESP: begin
-                if(respReady)
-                    next = IDLE;
-            end
-            default: begin
-                next = IDLE;
-            end
+        next = current;
+        unique case (current)
+            IDLE: if (bus.reqValid) next = RESP;
+            RESP: if (bus.respReady) next = IDLE;
+            default: next = IDLE;
         endcase
     end
 
@@ -43,21 +27,18 @@ module Timer #(parameter XLEN = 32) (
         end
     end
 
-    assign respValid = (current == RESP);
-    assign reqReady = (current == IDLE);
-    logic [63:0] rtc64;
+    assign bus.respValid = (current == RESP);
+    assign bus.reqReady = (current == IDLE);
+    assign bus.err = bus.wen ? 2'b10 : 2'b00;
+    assign bus.rdata = rtc64[31:0];
 
     always_ff @(posedge clk) begin
-        if(current == IDLE && reqValid) begin
-            if(wen) begin
+        if (current == IDLE && bus.reqValid) begin
+            if (bus.wen)
                 $error("Timer is read-only");
-            end
-            else begin
-                rtc64 <= mmio_read(addr);
-            end
+            else
+                rtc64 <= mmio_read(bus.addr);
         end
     end
-
-    assign rdata = rtc64[31:0];
 
 endmodule
