@@ -26,9 +26,10 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 1
     logic idu_ready;
     logic ifu_valid;
 
-    // SimpleBus 接口：每条链路一个实例
+    // SimpleBus：IFU/LSU → Arbiter → Xbar → 外设（共享总线）
     SimpleBus_if #(.XLEN(DATA_WIDTH)) lsu_bus  (clk);
     SimpleBus_if #(.XLEN(DATA_WIDTH)) ifu_bus  (clk);
+    SimpleBus_if #(.XLEN(DATA_WIDTH)) cpu_bus  (clk);
     SimpleBus_if #(.XLEN(DATA_WIDTH)) ram_bus  (clk);
     SimpleBus_if #(.XLEN(DATA_WIDTH)) uart_bus (clk);
     SimpleBus_if #(.XLEN(DATA_WIDTH)) timer_bus(clk);
@@ -131,10 +132,18 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 1
         .bus(lsu_bus.Master)
     );
 
-    Xbar #(.XLEN(DATA_WIDTH)) xbar (
+    Arbiter #(.XLEN(DATA_WIDTH)) arbiter (
         .clk(clk),
         .rst_n(rst_n),
         .lsu(lsu_bus.Slave),
+        .ifu(ifu_bus.Slave),
+        .xbar(cpu_bus.Master)
+    );
+
+    Xbar #(.XLEN(DATA_WIDTH)) xbar (
+        .clk(clk),
+        .rst_n(rst_n),
+        .cpu(cpu_bus.Slave),
         .ram(ram_bus.Master),
         .uart(uart_bus.Master),
         .timer(timer_bus.Master)
@@ -144,12 +153,6 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 1
         .clk(clk),
         .rst_n(rst_n),
         .bus(ram_bus.Slave)
-    );
-
-    ROM #(.XLEN(DATA_WIDTH)) rom (
-        .clk(clk),
-        .rst_n(rst_n),
-        .bus(ifu_bus.Slave)
     );
 
     UART #(.XLEN(DATA_WIDTH)) uart (
