@@ -84,12 +84,15 @@ extern void wp_scan_wp();
 
 void Simlator::execute(uint64_t n) {
     for (uint64_t i = 0; i < n && sim_state == RUNNING; ++i) {
+        // fire 在提交沿之前为高：本拍上升沿才会写回 GPR / 更新 PC。
+        // 必须先采样再 clock，提交后再做 DiffTest，此时 DUT.PC == REF.exec 后的 PC。
+        bool inst_valid = (top->rst_n != 0) && top->fire;
+        vaddr_t commit_pc = top->PC_current;
+        vaddr_t commit_next_pc = top->PC_next;
+        uint32_t commit_inst = top->instruction;
+
         clock_tick(1);
         statistic->cycle_nr++;
-
-        // SimpleBus IFU: 每条指令完成需要若干个周期 (IDLE(指令从ROM被取出且合法) + WAIT(基于访存延迟))
-        // 只有 fire = 1 完成握手，指令才真正完成执行
-        bool inst_valid = (top->rst_n != 0) && top->fire;
 
         if (inst_valid) {
             statistic->inst_nr++;
@@ -97,8 +100,8 @@ void Simlator::execute(uint64_t n) {
 
         IFDEF(CONFIG_DIFFTEST, {
             if (inst_valid) {
-                update_DUT_state();
-                difftest_step(top->PC_current, top->PC_next);
+                update_DUT_state(); // 此时 PC_current 已是下一条
+                difftest_step(commit_pc, commit_next_pc);
             }
         });
 
@@ -111,10 +114,10 @@ void Simlator::execute(uint64_t n) {
         IFDEF(CONFIG_ITRACE, {
             if (inst_valid) {
                 char asm_str[128];
-                itracer->disassemble(asm_str, sizeof(asm_str), top->PC_current, (uint8_t*)&top->instruction, 4);
+                itracer->disassemble(asm_str, sizeof(asm_str), commit_pc, (uint8_t*)&commit_inst, 4);
                 snprintf(npc_state->logbuf, sizeof(npc_state->logbuf), 
                 ANSI_FG_BLUE "[cycle=%lu] [inst_nr=%lu] [PC=0x%08x] inst: %08x %s\n" ANSI_NONE, 
-                statistic->cycle_nr, statistic->inst_nr, top->PC_current, top->instruction, asm_str);
+                statistic->cycle_nr, statistic->inst_nr, commit_pc, commit_inst, asm_str);
                 printf("%s", npc_state->logbuf);
                 itracer->push_irring(npc_state->logbuf);
             }

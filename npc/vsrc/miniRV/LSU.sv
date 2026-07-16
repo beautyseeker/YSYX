@@ -16,7 +16,7 @@ module LSU #(parameter XLEN = 32)
     output logic [XLEN-1:0]      load_data,
     output logic                 lsu_ready,
 
-    SimpleBus_if.Master          bus
+    AXI4_lite.Master          bus
 );
 
     localparam BYTES_PER_WORD = XLEN / 8;
@@ -25,75 +25,97 @@ module LSU #(parameter XLEN = 32)
     logic misaligned_access;
     assign byte_offset = addr[ALIGNED_WIDTH-1:0];
 
-    logic cpu_reqValid;
-    assign cpu_reqValid = (mem_read_en || mem_write_en);
-
-    enum logic [1:0] {IDLE, WAIT_RESP} current, next;
+    enum logic [1:0] {RD_IDLE, RD_WAIT_RESP} rd_cur, rd_next;
     always_comb begin
-        case(current)
-            IDLE: begin
-                if(cpu_reqValid && bus.reqReady) begin
-                    next = WAIT_RESP;
+        case(rd_cur)
+            RD_IDLE: begin
+                if(bus.ARvalid && bus.ARready) begin
+                    rd_next = RD_WAIT_RESP;
                 end
             end
-            WAIT_RESP: begin
-                if(bus.respValid && bus.respReady) begin
-                    next = IDLE;
+            RD_WAIT_RESP: begin
+                if(bus.Rvalid && bus.Rready) begin
+                    rd_next = RD_IDLE;
                 end
             end
             default: begin
-                next = IDLE;
+                rd_next = RD_IDLE;
+            end
+        endcase
+    end
+
+    enum logic [1:0] {WR_IDLE, WR_WAIT_RESP} wr_cur, wr_next;
+    always_comb begin
+        case(wr_cur)
+            WR_IDLE: begin
+                if((bus.AWvalid && bus.AWready) | (bus.Wvalid && bus.Wready)) begin
+                    wr_next = WR_WAIT_RESP;
+                end
+            end
+            WR_WAIT_RESP: begin
+                if(bus.BrespValid && bus.BrespReady) begin
+                    wr_next = WR_IDLE;
+                end
+            end
+            default: begin
+                wr_next = WR_IDLE;
             end
         endcase
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
-            current <= IDLE;
+            rd_cur <= RD_IDLE;
         end
         else begin
-            current <= next;
+            rd_cur <= rd_next;
+            wr_cur <= wr_next;
         end
     end
 
-    assign bus.addr = addr;
-    assign bus.reqValid = cpu_reqValid;
-    assign bus.wen = mem_write_en;
-    assign bus.wdata = store_data << (byte_offset * 8);
-    assign bus.respReady = 1'b1; // 主机LSU不受下游阻塞，因此总是准备好接收响应
-    assign lsu_ready = (current == WAIT_RESP && bus.respValid && bus.respReady);
+    assign bus.ARaddr = addr;
+    assign bus.ARvalid = mem_read_en;
+    assign bus.Rready = rd_cur == RD_WAIT_RESP;
+    assign bus.AWaddr = addr;
+    assign bus.AWvalid = mem_write_en;
+    assign bus.Wdata = store_data << (byte_offset * 8);
+    assign bus.Wvalid = mem_write_en;
+    assign bus.BrespReady = wr_cur == WR_WAIT_RESP;
+    assign lsu_ready = 
+    (wr_cur == WR_WAIT_RESP && bus.BrespValid && bus.BrespReady)
+    |(rd_cur == RD_WAIT_RESP && bus.Rvalid && bus.Rready);
 
     logic [7:0] target_byte;
     logic [15:0] target_half;
     // 数据切片与符号扩展, 取决于访存指令的mem_size和byte_offset
     always_comb begin : mask_and_store_assign
-        bus.mask = 4'b0000;
+        bus.Wmask = 4'b0000;
         target_byte = 8'b0;
         target_half = 16'b0;
         unique case (mem_size)
             MEM_BYTE: begin
                 unique case (byte_offset)
-                    2'b00: begin bus.mask = 4'b0001; target_byte = bus.rdata[7:0]; end
-                    2'b01: begin bus.mask = 4'b0010; target_byte = bus.rdata[15:8]; end
-                    2'b10: begin bus.mask = 4'b0100; target_byte = bus.rdata[23:16]; end
-                    2'b11: begin bus.mask = 4'b1000; target_byte = bus.rdata[31:24]; end
+                    2'b00: begin bus.Wmask = 4'b0001; target_byte = bus.Rdata[7:0]; end
+                    2'b01: begin bus.Wmask = 4'b0010; target_byte = bus.Rdata[15:8]; end
+                    2'b10: begin bus.Wmask = 4'b0100; target_byte = bus.Rdata[23:16]; end
+                    2'b11: begin bus.Wmask = 4'b1000; target_byte = bus.Rdata[31:24]; end
                 endcase
                 load_data = mem_sign ? 32'($signed(target_byte)) : 32'($unsigned(target_byte)); 
             end
             MEM_HALF: begin
                 unique case (byte_offset[1])
-                    1'b0: begin bus.mask = 4'b0011; target_half = bus.rdata[15:0]; end
-                    1'b1: begin bus.mask = 4'b1100; target_half = bus.rdata[31:16]; end
+                    1'b0: begin bus.Wmask = 4'b0011; target_half = bus.Rdata[15:0]; end
+                    1'b1: begin bus.Wmask = 4'b1100; target_half = bus.Rdata[31:16]; end
                 endcase
                 load_data = mem_sign ? 32'($signed(target_half)) : 32'($unsigned(target_half)); 
             end
             MEM_WORD: begin
-                bus.mask = 4'b1111;
-                load_data = bus.rdata[31:0];
+                bus.Wmask = 4'b1111;
+                load_data = bus.Rdata[31:0];
             end
             default: begin
-                bus.mask = 4'b1111;
-                load_data = bus.rdata;
+                bus.Wmask = 4'b1111;
+                load_data = bus.Rdata;
             end
         endcase
     end
@@ -101,7 +123,7 @@ module LSU #(parameter XLEN = 32)
     always_comb begin : unaligned_check
         misaligned_access = 1'b0;
 
-        if (cpu_reqValid) begin
+        if (mem_read_en || mem_write_en) begin
             case (mem_size)
                 MEM_HALF: begin
                     if (byte_offset[0] != 1'b0) begin
