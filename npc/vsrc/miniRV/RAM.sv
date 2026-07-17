@@ -17,8 +17,9 @@ module RAM #(parameter XLEN = 32, DEPTH = 1024*1024) (
         {8{bus.Wmask[0]}}
     };
 
-    logic [ADDR_WIDTH-1:0] mem_idx;
-    assign mem_idx = ADDR_WIDTH'((bus.AWaddr - BASE) >> 2);
+    logic [ADDR_WIDTH-1:0] rd_idx, wr_idx;
+    assign rd_idx = ADDR_WIDTH'((bus.ARaddr - BASE) >> 2);
+    assign wr_idx = ADDR_WIDTH'((bus.AWaddr - BASE) >> 2);
     logic addr_in_mem;
     assign addr_in_mem = (bus.AWaddr >= BASE) && (bus.AWaddr < BASE + SIZE);
 
@@ -107,7 +108,7 @@ module RAM #(parameter XLEN = 32, DEPTH = 1024*1024) (
     assign bus.Rvalid = rd_trans_cur == RD_RESP;
     always_ff @(posedge clk) begin
         if(rd_trans_cur == RD_BUSY && cnt == LATENCY - 1) begin
-            bus.Rdata <= MEM[mem_idx]; // 此处还未处理读写冲突
+            bus.Rdata <= MEM[rd_idx]; // 此处还未处理读写冲突
         end
     end
     assign bus.Rresp = 2'b00;
@@ -117,8 +118,8 @@ module RAM #(parameter XLEN = 32, DEPTH = 1024*1024) (
     always_ff @(posedge clk) begin
         if(wr_trans_cur == WR_BUSY && cnt == LATENCY - 1) begin
             // 此处还未处理读写冲突
-            MEM[mem_idx] <= (bus.Wdata & full_mask) 
-            | (MEM[mem_idx] & ~full_mask);
+            MEM[wr_idx] <= (bus.Wdata & full_mask) 
+            | (MEM[wr_idx] & ~full_mask);
         end
     end
     assign bus.BrespValid = wr_trans_cur == WR_RESP;

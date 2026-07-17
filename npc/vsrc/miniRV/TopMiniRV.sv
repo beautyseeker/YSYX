@@ -26,14 +26,13 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 1
     logic idu_ready;
     logic ifu_valid;
 
-    // SimpleBus：IFU/LSU → Arbiter → Xbar → 外设（共享总线）
-    AXI4_lite #(.XLEN(DATA_WIDTH)) lsu_bus  (clk);
-    AXI4_lite #(.XLEN(DATA_WIDTH)) ifu_bus  (clk);
-    // AXI4_lite #(.XLEN(DATA_WIDTH)) cpu_bus  (clk);
-
-    AXI4_lite #(.XLEN(DATA_WIDTH)) ram_bus  (clk);
-    // AXI4_lite #(.XLEN(DATA_WIDTH)) uart_bus (clk);
-    // AXI4_lite #(.XLEN(DATA_WIDTH)) timer_bus(clk);
+    // AXI4-Lite：IFU/LSU → Arbiter → Xbar → RAM/UART/Timer
+    AXI4_lite #(.XLEN(DATA_WIDTH)) lsu_bus   (clk);
+    AXI4_lite #(.XLEN(DATA_WIDTH)) ifu_bus   (clk);
+    AXI4_lite #(.XLEN(DATA_WIDTH)) cpu_bus   (clk);
+    AXI4_lite #(.XLEN(DATA_WIDTH)) ram_bus   (clk);
+    AXI4_lite #(.XLEN(DATA_WIDTH)) uart_bus  (clk);
+    AXI4_lite #(.XLEN(DATA_WIDTH)) timer_bus (clk);
 
     IFU #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH), .RESET_VEC(RESET_VEC)) ifu (
         .clk(clk),
@@ -133,46 +132,40 @@ module top_TopMiniRV #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 24, REG_COUNT = 1
         .bus(lsu_bus.Master)
     );
 
-    // Arbiter #(.XLEN(DATA_WIDTH)) arbiter (
-    //     .clk(clk),
-    //     .rst_n(rst_n),
-    //     .lsu(lsu_bus.Slave),
-    //     .ifu(ifu_bus.Slave),
-    //     .xbar(cpu_bus.Master)
-    // );
-
-    // Xbar #(.XLEN(DATA_WIDTH)) xbar (
-    //     .clk(clk),
-    //     .rst_n(rst_n),
-    //     .cpu(cpu_bus.Slave),
-    //     .ram(ram_bus.Master),
-    //     .uart(uart_bus.Master),
-    //     .timer(timer_bus.Master)
-    // );
-
-    ROM #(.XLEN(DATA_WIDTH)) rom (
+    Arbiter #(.XLEN(DATA_WIDTH)) arbiter (
         .clk(clk),
         .rst_n(rst_n),
-        .bus(ifu_bus.Slave)
+        .lsu(lsu_bus.Slave),
+        .ifu(ifu_bus.Slave),
+        .xbar(cpu_bus.Master)
+    );
+
+    Xbar #(.XLEN(DATA_WIDTH)) xbar (
+        .clk(clk),
+        .rst_n(rst_n),
+        .cpu(cpu_bus.Slave),
+        .ram(ram_bus.Master),
+        .uart(uart_bus.Master),
+        .timer(timer_bus.Master)
     );
 
     RAM #(.XLEN(DATA_WIDTH)) ram (
         .clk(clk),
         .rst_n(rst_n),
-        .bus(lsu_bus.Slave)
+        .bus(ram_bus.Slave)
     );
 
-    // UART #(.XLEN(DATA_WIDTH)) uart (
-    //     .clk(clk),
-    //     .rst_n(rst_n),
-    //     .bus(uart_bus.Slave)
-    // );
+    UART #(.XLEN(DATA_WIDTH)) uart (
+        .clk(clk),
+        .rst_n(rst_n),
+        .bus(uart_bus.Slave)
+    );
 
-    // Timer #(.XLEN(DATA_WIDTH)) rtc (
-    //     .clk(clk),
-    //     .rst_n(rst_n),
-    //     .bus(timer_bus.Slave)
-    // );
+    Timer #(.XLEN(DATA_WIDTH)) rtc (
+        .clk(clk),
+        .rst_n(rst_n),
+        .bus(timer_bus.Slave)
+    );
 
     WBU #(.XLEN(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH)) wbu (
         .alu_result(alu_result),
