@@ -892,29 +892,30 @@ nemu/Makefile做了这些事
 config.mk配置读取虚拟机参数——filelist.mk指定源文件以及源文件黑名单——build.mk编译出nemu模拟器——native.mk nemu模拟器加载运行AM程序镜像
 
 ## NEMU完整调用链一图流
-make run (在 nemu/ 目录)
-│
-├─ 读取 include/config/auto.conf → 获取 ISA/ENGINE/CFLAGS...
-│
-├─ find src/**/filelist.mk → include 所有 filelist.mk
-│      ├─ DIRS-y += src/cpu src/monitor src/utils
-│      ├─ DIRS-y += src/isa/riscv32       ← 由 GUEST_ISA 决定
-│      ├─ DIRS-y += src/engine/interpreter ← 由 ENGINE 决定
-│      └─ SRCS = find 所有目录下 *.c，过滤黑名单
-│
-├─ include scripts/config.mk → menuconfig 工具规则
-│
-├─ include scripts/native.mk
-│      ├─ include build.mk → 编译规则，BINARY=build/riscv32-nemu-interpreter
-│      ├─ include difftest.mk → 可选：构建参考模型 .so
-│      └─ 定义 run / gdb targets
-│
-└─ make run
-       ├─ compile_git → git commit
-       ├─ 编译所有 SRCS → OBJ_DIR/*.o
-       ├─ 链接 → build/riscv32-nemu-interpreter
-       └─ 执行: ./riscv32-nemu-interpreter --log=nemu-log.txt IMG
-
+```
+make run (在 nemu/ 目录)  
+│   
+├─ 读取 include/config/auto.conf → 获取 ISA/ENGINE/CFLAGS...    
+│  
+├─ find src/**/filelist.mk → include 所有 filelist.mk  
+│      ├─ DIRS-y += src/cpu src/monitor src/utils  
+│      ├─ DIRS-y += src/isa/riscv32       ← 由 GUEST_ISA 决  
+│      ├─ DIRS-y += src/engine/interpreter ← 由 ENGINE 决定  
+│      └─ SRCS = find 所有目录下 *.c，过滤黑名单  
+│  
+├─ include scripts/config.mk → menuconfig 工具规则  
+│  
+├─ include scripts/native.mk  
+│      ├─ include build.mk → 编译规则，BINARY=build/riscv32-nemu-interpreter  
+│      ├─ include difftest.mk → 可选：构建参考模型 .so  
+│      └─ 定义 run / gdb targets  
+│  
+└─ make run  
+       ├─ compile_git → git commit  
+       ├─ 编译所有 SRCS → OBJ_DIR/*.o  
+       ├─ 链接 → build/riscv32-nemu-interpreter  
+       └─ 执行: ./riscv32-nemu-interpreter --log=nemu-log.txt IMG  
+```
 Navy的Makefile主要由以下组成：
 指定程序源码SRC、指定源码需要的LIBS系统库、指定源码要编译的ISA、链接为二进制镜像。有以下关键命令
 install:复制镜像文件到fsimg文件夹
@@ -1113,3 +1114,50 @@ IFU似乎有重大毛病，就是IFU中的PC_next计算，是基于上一条旧�
 PC已经更新，但在从新PC到新inst的取指阶段，旧的inst产生的数据还在发力，下一条访存指令一旦ifu_valid拉高就开启了MEM的读写使能，
 
 字节访存指令实现有误，regfile的回写使能错误地依赖于ifu_valid而不是fire信号，导致访存未完成时，旧数据回写到寄存器堆。进而导致下次访存时有可能访问到非法地址。
+
+# 7/9
+1. 解决串口双打印问题
+2. 升级Simplebus
+
+AMBA协议中，从机必须依据valid信号对总线数据进行缓存，这是数据稳定和时序收敛，总线数据吞吐率、信号扇出共同决定的。
+
+以前主机只要给从机发数据，就保持数据并拉高reqValid, 不管从机是否忙碌。现在从从机那边多拉入了一条reqReady信号，对于reqValid拉高但是reqReady为低的情况，主机要缓存reqValid拉高期间要发往从机的有效数据.
+同时以前从机给主机发的数据现在也要看主机是否忙碌respReady,如果respValid为高但是respReady为低时也要缓存发给主机的有效回复数据
+
+
+
+FSM设计核心是控制与数据通路分离，状态是作为中间媒介来实现输入、输出、控制、数据之间的解耦和数据流向控制
+input = ctrl_in + data_in
+output = ctrl_out + data_out
+
+ctrl_out = FSM(state, ctrl_in) = Moore(state) or Meley(state, ctrl_in)
+data_out = OUT(state, data_in)
+
+数据交互从一次握手，拆分为了独立的请求阶段握手+响应阶段握手两次握手。
+数据交互从单通道一次握手成功valid-ready，升级为事务响应通道握手成功即respValid-respReady
+
+核心概念澄清：通道握手 vs 事务完成你之前之所以感到混乱，是因为把“通道（Channel）”和“事务（Transaction）”混淆了：通道握手（Channel Handshake）：指的是 $\text{Valid} \ \&\& \ \text{Ready} == 1$。它是局部的、单向的。在你的设计里，有请求通道和响应通道，所以一次完整的访存会发生两次通道握手。事务完成（Transaction Completion）：指的是一个完整的业务逻辑（读或写）的终结。由于响应是访存的最后一个环节，所以响应通道的握手，就是整个事务完成的终点线。
+
+
+多个主机进来地址、请求和数据，从多个从机输出数据和回应
+1. 地址译码
+2. 请求分发
+3. 响应聚合
+XBAR起到一个多机仲裁、路由转发的功能
+
+主机地址应原封不动地分发给各从机，地址转换逻辑由从机内部实现
+由于主机发出和接收的数据，需要根据访存指令、长度、符号、byte_offset共同决定，这部分数据收发逻辑应写在LSU内，而不能出现在XBAR
+
+地址合法性检查分两道：
+1. XBAR负责全局性的地址译码检查，通过初筛后分发给从机
+2. 具体的从机内部再作地址合法性检查,读写权限检查和错误反馈
+
+32位相等器的门延迟
+
+# 7/14
+SystemVerilog的interface特性非常好用，声明总线信号列表，并定义不同的总线端口的信号流向，总线不再单单是一簇导线，而是一排可实例化的，连接各个模块间的实体。
+
+状态机设计中，输出到下游的控制信号用Moore型表示，能显著降低总线死锁的概率
+
+# 7/17
+AXI4协议最显著的特征是各通道加入了事务ID以用来支持突发和乱序传输, 读写地址通道新增了突发模式、突发长度、突发单元字长、存储类型、存储权限、原子操作、事务优先级、从机区域ID、用户配置字段

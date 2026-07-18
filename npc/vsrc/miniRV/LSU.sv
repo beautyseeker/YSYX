@@ -16,7 +16,7 @@ module LSU #(parameter XLEN = 32)
     output logic [XLEN-1:0]      load_data,
     output logic                 lsu_ready,
 
-    AXI4_lite.Master          bus
+    AXI4.Master                  bus
 );
 
     localparam BYTES_PER_WORD = XLEN / 8;
@@ -24,6 +24,14 @@ module LSU #(parameter XLEN = 32)
     logic [ALIGNED_WIDTH-1:0] byte_offset;
     logic misaligned_access;
     assign byte_offset = addr[ALIGNED_WIDTH-1:0];
+
+    function automatic logic [2:0] axi_size(input mem_size_e sz);
+        unique case (sz)
+            MEM_BYTE: axi_size = 3'b000;
+            MEM_HALF: axi_size = 3'b001;
+            default:  axi_size = 3'b010;
+        endcase
+    endfunction
 
     enum logic [1:0] {RD_IDLE, RD_WAIT_RESP} rd_cur, rd_next;
     always_comb begin
@@ -53,13 +61,10 @@ module LSU #(parameter XLEN = 32)
                 end
             end
             WR_WAIT_RESP: begin
-                if(bus.BrespValid && bus.BrespReady) begin
+                if (bus.Bvalid && bus.Bready)
                     wr_next = WR_IDLE;
-                end
             end
-            default: begin
-                wr_next = WR_IDLE;
-            end
+            default: wr_next = WR_IDLE;
         endcase
     end
 
@@ -75,46 +80,57 @@ module LSU #(parameter XLEN = 32)
 
     assign bus.ARaddr = addr;
     assign bus.ARvalid = mem_read_en;
-    assign bus.Rready = rd_cur == RD_WAIT_RESP;
-    assign bus.AWaddr = addr;
+    assign bus.ARid    = '0;
+    assign bus.ARlen   = '0;
+    assign bus.ARsize  = axi_size(mem_size);
+    assign bus.ARburst = 2'b01;
+    assign bus.Rready  = (rd_cur == RD_WAIT_RESP);
+
+    assign bus.AWaddr  = addr;
     assign bus.AWvalid = mem_write_en;
-    assign bus.Wdata = store_data << (byte_offset * 8);
-    assign bus.Wvalid = mem_write_en;
-    assign bus.BrespReady = wr_cur == WR_WAIT_RESP;
-    assign lsu_ready = 
-    (wr_cur == WR_WAIT_RESP && bus.BrespValid && bus.BrespReady)
-    |(rd_cur == RD_WAIT_RESP && bus.Rvalid && bus.Rready);
+    assign bus.AWid    = '0;
+    assign bus.AWlen   = '0;
+    assign bus.AWsize  = axi_size(mem_size);
+    assign bus.AWburst = 2'b01;
+    assign bus.Wdata   = store_data << (byte_offset * 8);
+    assign bus.Wvalid  = mem_write_en;
+    assign bus.Wlast   = 1'b1;
+    assign bus.Bready  = (wr_cur == WR_WAIT_RESP);
+
+    assign lsu_ready =
+        (wr_cur == WR_WAIT_RESP && bus.Bvalid && bus.Bready) ||
+        (rd_cur == RD_WAIT_RESP && bus.Rvalid && bus.Rready);
 
     logic [7:0] target_byte;
     logic [15:0] target_half;
     // 数据切片与符号扩展, 取决于访存指令的mem_size和byte_offset
     always_comb begin : mask_and_store_assign
-        bus.Wmask = 4'b0000;
+        bus.Wstrb   = 4'b0000;
         target_byte = 8'b0;
         target_half = 16'b0;
         unique case (mem_size)
             MEM_BYTE: begin
                 unique case (byte_offset)
-                    2'b00: begin bus.Wmask = 4'b0001; target_byte = bus.Rdata[7:0]; end
-                    2'b01: begin bus.Wmask = 4'b0010; target_byte = bus.Rdata[15:8]; end
-                    2'b10: begin bus.Wmask = 4'b0100; target_byte = bus.Rdata[23:16]; end
-                    2'b11: begin bus.Wmask = 4'b1000; target_byte = bus.Rdata[31:24]; end
+                    2'b00: begin bus.Wstrb = 4'b0001; target_byte = bus.Rdata[7:0]; end
+                    2'b01: begin bus.Wstrb = 4'b0010; target_byte = bus.Rdata[15:8]; end
+                    2'b10: begin bus.Wstrb = 4'b0100; target_byte = bus.Rdata[23:16]; end
+                    2'b11: begin bus.Wstrb = 4'b1000; target_byte = bus.Rdata[31:24]; end
                 endcase
                 load_data = mem_sign ? 32'($signed(target_byte)) : 32'($unsigned(target_byte)); 
             end
             MEM_HALF: begin
                 unique case (byte_offset[1])
-                    1'b0: begin bus.Wmask = 4'b0011; target_half = bus.Rdata[15:0]; end
-                    1'b1: begin bus.Wmask = 4'b1100; target_half = bus.Rdata[31:16]; end
+                    1'b0: begin bus.Wstrb = 4'b0011; target_half = bus.Rdata[15:0]; end
+                    1'b1: begin bus.Wstrb = 4'b1100; target_half = bus.Rdata[31:16]; end
                 endcase
                 load_data = mem_sign ? 32'($signed(target_half)) : 32'($unsigned(target_half)); 
             end
             MEM_WORD: begin
-                bus.Wmask = 4'b1111;
+                bus.Wstrb = 4'b1111;
                 load_data = bus.Rdata[31:0];
             end
             default: begin
-                bus.Wmask = 4'b1111;
+                bus.Wstrb = 4'b1111;
                 load_data = bus.Rdata;
             end
         endcase
@@ -122,19 +138,10 @@ module LSU #(parameter XLEN = 32)
 
     always_comb begin : unaligned_check
         misaligned_access = 1'b0;
-
         if (mem_read_en || mem_write_en) begin
             case (mem_size)
-                MEM_HALF: begin
-                    if (byte_offset[0] != 1'b0) begin
-                        misaligned_access = 1'b1;
-                    end
-                end
-                MEM_WORD: begin
-                    if (byte_offset != 2'b00) begin
-                        misaligned_access = 1'b1;
-                    end
-                end
+                MEM_HALF: if (byte_offset[0] != 1'b0) misaligned_access = 1'b1;
+                MEM_WORD: if (byte_offset != 2'b00)   misaligned_access = 1'b1;
                 default: ;
             endcase
 

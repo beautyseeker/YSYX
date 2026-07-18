@@ -27,6 +27,6 @@ image: image-dep
 
 run: insert-arg
 	@hexdump -v -e '1/4 "%08x" "\n"' $(IMAGE).bin > $(IMAGE).hex
-	$(MAKE) -C $(NPC_HOME) IMAGE=$(IMAGE).hex MODULE=TopMiniRV sim
+	$(MAKE) -C $(NPC_HOME) IMAGE=$(IMAGE).hex sim
 
 .PHONY: insert-arg

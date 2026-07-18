@@ -1,7 +1,7 @@
 #include "common.h"
 #include "monitor.h"
-#include "Vtop_TopMiniRV.h"
-#include "Vtop_TopMiniRV___024root.h"
+#include "Simlator.hpp"
+#include <cstring>
 
 static uint8_t* pmem = nullptr;
 
@@ -29,17 +29,14 @@ void pmem_write(paddr_t addr, int len, word_t data) {
 }
 
 void init_mem() {
-    auto cpu = Simlator::instance;
-    if (!cpu) { panic("Simulator instance is null!"); }
-    if (!cpu->top) { panic("cpu->top is null!"); }
-
-    // Verilator 5: 顶层 Vtop_TopMiniRV，内部状态在 rootp (Vtop_TopMiniRV___024root)
-    auto* root = cpu->top->rootp;
-    if (!root) { panic("Verilator rootp is null!"); }
-
-    pmem = reinterpret_cast<uint8_t*>(&root->top_TopMiniRV__DOT__ram__DOT__MEM[0]);
+    // SoC 模式下不再绑定 RTL 内 RAM.MEM；host 侧独占 pmem（DiffTest / SDB / load_img）
+    if (pmem == nullptr) {
+        pmem = (uint8_t*)malloc(CONFIG_MSIZE);
+        Assert(pmem, "Cannot allocate host pmem, size = %d", CONFIG_MSIZE);
+        memset(pmem, 0, CONFIG_MSIZE);
+    }
     Log("physical memory area [" FMT_PADDR ", " FMT_PADDR "]", PMEM_LEFT, PMEM_RIGHT);
-    Log("pmem host ptr = %p (RAM.MEM)", pmem);
+    Log("pmem host ptr = %p (malloc)", pmem);
     Log("Memory Trace: %s", MUXDEF(CONFIG_MTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
 }
 
@@ -59,5 +56,22 @@ extern "C" {
         auto cpu = Simlator::instance;
         print_trap_state(cpu, cpu->get_gpr(10));
         cpu->set_state(SimState::END);
+    }
+
+    // SoC DPI：后续按讲义接 flash/mrom 镜像；先保证可链接、不立刻 assert
+    void flash_read(int32_t addr, int32_t *data) {
+        // flash XIP 地址空间在 SoC 侧；此处暂返回 0（nop），避免未实现就 fatal
+        *data = 0;
+        (void)addr;
+        assert(0);
+    }
+
+    void mrom_read(int32_t addr, int32_t *data) {
+        if(addr >= 0x20000000 && addr < 0x20001000) {
+            *data = 0x00100073;
+        } else {
+            *data = 0;
+            assert(0);
+        }
     }
 }

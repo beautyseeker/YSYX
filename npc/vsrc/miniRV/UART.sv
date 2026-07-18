@@ -3,24 +3,25 @@ import "DPI-C" function void mmio_write(input int unsigned addr, input int data,
 module UART #(parameter XLEN = 32) (
     input logic clk,
     input logic rst_n,
-    AXI4_lite.Slave bus
+    AXI4.Slave bus
 );
 
     logic [XLEN-1:0] awaddr_r, wdata_r;
-    logic [3:0]      wmask_r;
+    logic [3:0]      wstrb_r;
+    logic [3:0]      awid_r;
     logic [XLEN-1:0] full_mask_bus, full_mask_r;
 
     assign full_mask_bus = {
-        {8{bus.Wmask[3]}}, {8{bus.Wmask[2]}},
-        {8{bus.Wmask[1]}}, {8{bus.Wmask[0]}}
+        {8{bus.Wstrb[3]}}, {8{bus.Wstrb[2]}},
+        {8{bus.Wstrb[1]}}, {8{bus.Wstrb[0]}}
     };
     assign full_mask_r = {
-        {8{wmask_r[3]}}, {8{wmask_r[2]}},
-        {8{wmask_r[1]}}, {8{wmask_r[0]}}
+        {8{wstrb_r[3]}}, {8{wstrb_r[2]}},
+        {8{wstrb_r[1]}}, {8{wstrb_r[0]}}
     };
 
-    // ---------- 读 ----------
     enum logic {RD_IDLE, RD_RESP} rd_cur, rd_next;
+    logic [3:0] arid_r;
 
     always_comb begin
         rd_next = rd_cur;
@@ -32,16 +33,22 @@ module UART #(parameter XLEN = 32) (
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) rd_cur <= RD_IDLE;
-        else        rd_cur <= rd_next;
+        if (!rst_n) begin
+            rd_cur <= RD_IDLE;
+            arid_r <= '0;
+        end else begin
+            rd_cur <= rd_next;
+            if (bus.ARvalid && bus.ARready) arid_r <= bus.ARid;
+        end
     end
 
     assign bus.ARready = (rd_cur == RD_IDLE);
     assign bus.Rvalid  = (rd_cur == RD_RESP);
     assign bus.Rdata   = '0;
     assign bus.Rresp   = 2'b00;
+    assign bus.Rid     = arid_r;
+    assign bus.Rlast   = 1'b1;
 
-    // ---------- 写 ----------
     enum logic [1:0] {WR_IDLE, WR_WAIT_AW, WR_WAIT_W, WR_RESP} wr_cur, wr_next;
 
     always_comb begin
@@ -57,7 +64,7 @@ module UART #(parameter XLEN = 32) (
             end
             WR_WAIT_AW: if (bus.AWvalid && bus.AWready) wr_next = WR_RESP;
             WR_WAIT_W:  if (bus.Wvalid  && bus.Wready)  wr_next = WR_RESP;
-            WR_RESP:    if (bus.BrespValid && bus.BrespReady) wr_next = WR_IDLE;
+            WR_RESP:    if (bus.Bvalid && bus.Bready) wr_next = WR_IDLE;
             default: wr_next = WR_IDLE;
         endcase
     end
@@ -67,14 +74,17 @@ module UART #(parameter XLEN = 32) (
             wr_cur   <= WR_IDLE;
             awaddr_r <= '0;
             wdata_r  <= '0;
-            wmask_r  <= '0;
+            wstrb_r  <= '0;
+            awid_r   <= '0;
         end else begin
             wr_cur <= wr_next;
-            if (bus.AWvalid && bus.AWready)
+            if (bus.AWvalid && bus.AWready) begin
                 awaddr_r <= bus.AWaddr;
+                awid_r   <= bus.AWid;
+            end
             if (bus.Wvalid && bus.Wready) begin
                 wdata_r <= bus.Wdata;
-                wmask_r <= bus.Wmask;
+                wstrb_r <= bus.Wstrb;
             end
         end
     end
@@ -88,9 +98,10 @@ module UART #(parameter XLEN = 32) (
             mmio_write(bus.AWaddr, wdata_r, full_mask_r);
     end
 
-    assign bus.AWready    = (wr_cur == WR_IDLE) || (wr_cur == WR_WAIT_AW);
-    assign bus.Wready     = (wr_cur == WR_IDLE) || (wr_cur == WR_WAIT_W);
-    assign bus.BrespValid = (wr_cur == WR_RESP);
-    assign bus.Bresp      = 2'b00;
+    assign bus.AWready = (wr_cur == WR_IDLE) || (wr_cur == WR_WAIT_AW);
+    assign bus.Wready  = (wr_cur == WR_IDLE) || (wr_cur == WR_WAIT_W);
+    assign bus.Bvalid  = (wr_cur == WR_RESP);
+    assign bus.Bresp   = 2'b00;
+    assign bus.Bid     = awid_r;
 
 endmodule

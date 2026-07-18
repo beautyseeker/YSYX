@@ -17,7 +17,7 @@ NPC_ROOT    := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 
 MODULE   ?= ysyxSoCFull
 # Verilator --top-module
-TOP      ?= ysyxSoCFull
+TOP      ?= top_$(MODULE)
 IMAGE    ?=
 BATCH    ?=
 CYCLES   ?= 10000
@@ -28,7 +28,7 @@ WAVE_DIR  ?= $(BUILD_DIR)/wave
 VCD_FILE  ?= $(BUILD_DIR)/wave/$(TOP).vcd
 
 VSRC_DIR    := $(NPC_ROOT)/vsrc/miniRV
-VSRC_DIR    += $(NPC_ROOT)/../ysyxSoC/perip $(NPC_ROOT)/../ysyxSoC/build/
+VSRC_DIR    += $(NPC_ROOT)/../ysyxSoC/perip
 SIM_DIR     := $(NPC_ROOT)/sim/miniRV
 CONSTR_DIR  := $(NPC_ROOT)/constr
 CSRC_DIR    := $(NPC_ROOT)/csrc
@@ -40,11 +40,8 @@ VERILATOR   ?= verilator
 GTKWAVE     ?= gtkwave
 
 # ---------- 公共 RTL ----------
-# 排除旧仿真壳及其本地外设（SoC 已提供存储器/UART）
 PKG_SV := $(wildcard $(NPC_ROOT)/include/defs_pkg.sv)
-VSRCS_RAW := $(PKG_SV) $(shell find $(VSRC_DIR) -name '*.sv' -o -name '*.v' 2>/dev/null | sort)
-VSRCS_EXCLUDE := TopMiniRV.sv RAM.sv UART.sv Xbar.sv SimpleBus_if.sv
-VSRCS := $(filter-out $(addprefix %/,$(VSRCS_EXCLUDE)),$(VSRCS_RAW))
+VSRCS  := $(PKG_SV) $(shell find $(VSRC_DIR) -name '*.sv' -o -name '*.v' 2>/dev/null | sort)
 
 # ---------- Verilator 公共选项 ----------
 # Verilog `include 必须用 Verilator 的 -I，不能只写在 -CFLAGS 里
@@ -53,13 +50,11 @@ VERILATOR_FLAGS = -MMD --build -cc -sv \
 	-I$(NPC_ROOT)/../ysyxSoC/perip/uart16550/rtl \
 	-I$(NPC_ROOT)/../ysyxSoC/perip/spi/rtl \
 	-O3 --x-assign fast --x-initial fast \
+	--trace \
 	--timescale 1ns/1ns \
 	--no-timing \
 	--top-module $(TOP) \
 	--Mdir $(OBJ_DIR)/$(MODULE)
-
-# 波形：make TRACE=1 开启 --trace（注意磁盘；默认关闭以免 VCD 撑爆）
-VERILATOR_FLAGS += $(if $(TRACE),--trace,)
 
 # 下面这些 -I 只给仿真 C++（g++）用，与 Verilog `include 无关
 INC_PATH  := $(NPC_ROOT)/sim/miniRV/include
@@ -67,11 +62,8 @@ INC_PATH  += $(NEMU_HOME)/include/generated
 INCFLAGS  := $(addprefix -I,$(INC_PATH))
 
 CXXFLAGS_COMMON := $(INCFLAGS) \
-	-I$(OBJ_DIR)/$(MODULE) \
 	-DTOP_NAME=V$(TOP) \
-	-DTOP_HEADER=V$(TOP).h \
-	-DTOP_ROOT_HEADER=V$(TOP)___024root.h \
-	$(if $(TRACE),-DCONFIG_WAVE,) \
+	-DTOP_HEADER="\"V$(TOP).h\"" \
 	-g
 
 # ysyx 提交追踪（保留，勿删 sim 里的 git_commit）
@@ -80,9 +72,8 @@ CXXFLAGS_COMMON := $(INCFLAGS) \
 # =============================================================================
 # NPC 仿真（DiffTest + SDB）
 # =============================================================================
-SIM_TB   := $(SIM_DIR)/sim_$(TOP).cpp
-SIM_SRCS := $(shell find $(SIM_DIR)/src -name '*.cpp' -o -name '*.c' 2>/dev/null | sort)
-SIM_SRCS := $(filter-out %/npc_sim_main.cpp,$(SIM_SRCS))
+SIM_TB   := $(SIM_DIR)/sim_$(MODULE).cpp
+SIM_SRCS := $(shell find $(SIM_DIR) -name '*.cpp' -o -name '*.c' 2>/dev/null | sort)
 
 DIFF_SO  ?= $(NEMU_HOME)/build/riscv32-nemu-interpreter-so
 SIM_ARGS  = $(IMAGE)
@@ -94,7 +85,7 @@ LDFLAGS_SIM := -lcapstone -lreadline -lhistory -ldl
 $(SIM_BIN): $(VSRCS) $(SIM_TB) $(SIM_SRCS)
 	@mkdir -p $(WAVE_DIR) $(OBJ_DIR)/$(MODULE) $(dir $@)
 	$(VERILATOR) $(VERILATOR_FLAGS) \
-		--exe $(SIM_TB) $(SIM_SRCS) \
+		--exe $(SIM_TB) $(filter-out $(SIM_TB),$(SIM_SRCS)) \
 		$(addprefix -CFLAGS ,$(CXXFLAGS_COMMON)) \
 		$(addprefix -LDFLAGS ,$(LDFLAGS_SIM)) \
 		-o $(abspath $@) \

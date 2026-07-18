@@ -1,4 +1,3 @@
-// `include "defs_pkg.sv"
 import defs_pkg::*;
 
 module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_0000)
@@ -11,7 +10,7 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
     output logic [DATA_WIDTH-1:0] PC_current,
     output logic [DATA_WIDTH-1:0] instruction,
     output logic                  ifu_valid,
-    AXI4_lite.Master              bus
+    AXI4.Master                   bus
 );
 
     enum logic [1:0] {IDLE, WAIT_RD, HOLD} current, next;
@@ -49,16 +48,26 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
             instruction <= bus.Rdata;
     end
 
-    assign bus.ARaddr      = PC_current;
-    assign bus.ARvalid     = current == IDLE;
-    assign bus.Rready      = current == WAIT_RD;
+    // 单拍取指：len=0, size=word, burst=INCR
+    assign bus.ARaddr  = PC_current;
+    assign bus.ARvalid = current == IDLE;
+    assign bus.ARid    = '0;
+    assign bus.ARlen   = '0;
+    assign bus.ARsize  = 3'b010;
+    assign bus.ARburst = 2'b01;
+    assign bus.Rready  = current == WAIT_RD;
 
-    assign bus.AWaddr      = PC_current;
-    assign bus.AWvalid     = 1'b0;
-    assign bus.Wdata       = '0;
-    assign bus.Wmask       = '0;
-    assign bus.Wvalid      = 1'b0;
-    assign bus.BrespReady  = 1'b1;
+    assign bus.AWaddr  = '0;
+    assign bus.AWvalid = 1'b0;
+    assign bus.AWid    = '0;
+    assign bus.AWlen   = '0;
+    assign bus.AWsize  = '0;
+    assign bus.AWburst = '0;
+    assign bus.Wdata   = '0;
+    assign bus.Wstrb   = '0;
+    assign bus.Wvalid  = 1'b0;
+    assign bus.Wlast   = 1'b0;
+    assign bus.Bready  = 1'b1;
 
     // 只用寄存器态对外 valid，避免 respValid→译码→地址→Xbar 组合环
     assign ifu_valid   = (current == HOLD);

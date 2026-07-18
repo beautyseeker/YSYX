@@ -3,7 +3,7 @@
 #include <string>
 #include <cstring>
 #include <cstdlib>
-#include "Vtop_TopMiniRV.h"
+#include "dut_top.h"
 
 #define DEFAULT_SIM_CYCLES SIM_CYCLES
 #define RING_BUFFER_SIZE 5

@@ -1,11 +1,14 @@
 #ifndef __SIMULATOR_HPP__
 #define __SIMULATOR_HPP__
 
-#include "Vtop_TopMiniRV.h"
+#include "dut_top.h"
 #include "isa.h"
 #include <string>
 #include "verilated.h"
+// CONFIG_WAVE 仅由 Makefile TRACE=1 注入；勿在此硬编码 #define CONFIG_WAVE
+#ifdef CONFIG_WAVE
 #include "verilated_vcd_c.h"
+#endif
 
 // 仿真状态定义（保持与 SDB 同步）
 enum SimState { RUNNING, STOP, ABORT, QUIT, END };
@@ -59,7 +62,6 @@ struct CPU_Config {
     int cycle_max = 0;
     uint64_t load_inst_num = 0;
 
-    // 标记为 inline，告诉编译器这是允许在多处定义的
     inline void parse(int argc, char **argv) {
         for (int i = 1; i < argc; ++i) {
             if (strncmp(argv[i], "/home", 5) == 0) {
@@ -70,18 +72,14 @@ struct CPU_Config {
                 vcd_path = argv[i] + 4;
             }
         }
-
     }
 
     inline const char* get_filename() const {
         const char* filename = strrchr(img_path.c_str(), '/');
-        // printf("Extracting filename from path: %s\n", img_path.c_str());
         if (filename) {
-            // printf("Extracted filename: %s\n", filename + 1);
-            return filename + 1; // 返回文件名部分
+            return filename + 1;
         } else {
-            // printf("No path separator found, using entire string as filename: %s\n", img_path.c_str());
-            return img_path.c_str(); // 如果没有路径分隔符，直接返回输入字符串
+            return img_path.c_str();
         }
     }
 
@@ -118,15 +116,14 @@ private:
     void clock_tick(uint64_t n);
 
 public:
-    // 单例模式，方便 Bridge 层访问
-    Vtop_TopMiniRV* top;
+    DutTop* top;
     DUT_data* dut_data;
     NPC_State* npc_state;
-    VerilatedVcdC* tfp;
+    IFDEF(CONFIG_WAVE, VerilatedVcdC* tfp);
     IFDEF(CONFIG_ITRACE, InstTracer* itracer);
     static Simlator* instance;
 
-    Simlator(Vtop_TopMiniRV* DUT);
+    Simlator(DutTop* DUT);
     ~Simlator();
 
     // --- 仿真初始化接口 ---
@@ -140,10 +137,12 @@ public:
     void run();
     void init(int argc, char **argv);
 
-    // --- 硬件状态访问接口 (Getter) ---
-    // 这些接口供 Bridge 层调用，从而间接服务于 SDB 和 Trace
-    vaddr_t get_pc() const { return top->PC_current; }
-    word_t get_inst() const { return top->instruction; }
+    // 穿过 SoC 层次访问 ysyx_26020061（public_flat_rd）
+    vaddr_t get_pc() const { return DUT_CPU_SIG(top->rootp, PC_current); }
+    vaddr_t get_pc_next() const { return DUT_CPU_SIG(top->rootp, PC_next); }
+    word_t get_inst() const { return DUT_CPU_SIG(top->rootp, instruction); }
+    bool get_fire() const { return DUT_CPU_SIG(top->rootp, fire); }
+    bool in_reset() const { return top->reset != 0; }
     word_t get_gpr(int idx) const;
     word_t get_gpr(const char *name) const;
     

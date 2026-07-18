@@ -1,7 +1,9 @@
+import "DPI-C" function string get_img_path();
+
 module RAM #(parameter XLEN = 32, DEPTH = 1024*1024) (
     input logic clk,
     input logic rst_n,
-    AXI4_lite.Slave bus
+    AXI4.Slave bus
 );
 
     localparam BYTES = XLEN / 8;
@@ -11,17 +13,17 @@ module RAM #(parameter XLEN = 32, DEPTH = 1024*1024) (
     logic [XLEN-1:0] MEM [0:DEPTH-1] /* verilator public_flat */;
     logic [XLEN-1:0] full_mask;
     assign full_mask = {
-        {8{bus.Wmask[3]}},
-        {8{bus.Wmask[2]}},
-        {8{bus.Wmask[1]}},
-        {8{bus.Wmask[0]}}
+        {8{bus.Wstrb[3]}},
+        {8{bus.Wstrb[2]}},
+        {8{bus.Wstrb[1]}},
+        {8{bus.Wstrb[0]}}
     };
 
     logic [ADDR_WIDTH-1:0] rd_idx, wr_idx;
     assign rd_idx = ADDR_WIDTH'((bus.ARaddr - BASE) >> 2);
     assign wr_idx = ADDR_WIDTH'((bus.AWaddr - BASE) >> 2);
-    logic addr_in_mem;
-    assign addr_in_mem = (bus.AWaddr >= BASE) && (bus.AWaddr < BASE + SIZE);
+
+    logic [3:0] arid_r, awid_r;
 
     initial begin
         string path = get_img_path();
@@ -31,15 +33,10 @@ module RAM #(parameter XLEN = 32, DEPTH = 1024*1024) (
 
     logic [3:0] cnt;
     localparam LATENCY = 4'd1;
+    enum logic [2:0] {RD_IDLE, RD_BUSY, RD_RESP} rd_trans_cur, rd_trans_next;
     enum logic [2:0] {
-    RD_IDLE, RD_BUSY, RD_RESP
-    } rd_trans_cur, rd_trans_next;
-
-    enum logic [2:0] {
-        WR_IDLE, WR_WAIT_AW, WR_WAIT_W, 
-        WR_BUSY, WR_RESP
+        WR_IDLE, WR_WAIT_AW, WR_WAIT_W, WR_BUSY, WR_RESP
     } wr_trans_cur, wr_trans_next;
-
 
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
@@ -75,37 +72,33 @@ module RAM #(parameter XLEN = 32, DEPTH = 1024*1024) (
                 if (bus.AWvalid && bus.AWready) wr_trans_next = WR_WAIT_W;
                 else if (bus.Wvalid && bus.Wready) wr_trans_next = WR_WAIT_AW;
             end
-            WR_WAIT_AW: begin
-                if (bus.AWvalid && bus.AWready) wr_trans_next = WR_BUSY;
-            end
-            WR_WAIT_W: begin
-                if (bus.Wvalid && bus.Wready) wr_trans_next = WR_BUSY;
-            end
-            WR_BUSY: begin
-                if (cnt == LATENCY - 1) wr_trans_next = WR_RESP;
-            end
-            WR_RESP: begin
-                if (bus.BrespValid && bus.BrespReady) wr_trans_next = WR_IDLE;
-            end
-            default: begin
-                wr_trans_next = WR_IDLE;
-            end
+            WR_WAIT_AW: if (bus.AWvalid && bus.AWready) wr_trans_next = WR_BUSY;
+            WR_WAIT_W:  if (bus.Wvalid && bus.Wready)  wr_trans_next = WR_BUSY;
+            WR_BUSY:    if (cnt == LATENCY - 1) wr_trans_next = WR_RESP;
+            WR_RESP:    if (bus.Bvalid && bus.Bready) wr_trans_next = WR_IDLE;
+            default: wr_trans_next = WR_IDLE;
         endcase
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
-        if(!rst_n) begin
+        if (!rst_n) begin
             rd_trans_cur <= RD_IDLE;
             wr_trans_cur <= WR_IDLE;
-        end
-        else begin
+            arid_r <= '0;
+            awid_r <= '0;
+        end else begin
             rd_trans_cur <= rd_trans_next;
             wr_trans_cur <= wr_trans_next;
+            if (bus.ARvalid && bus.ARready) arid_r <= bus.ARid;
+            if (bus.AWvalid && bus.AWready) awid_r <= bus.AWid;
         end
     end
 
     assign bus.ARready = rd_trans_cur == RD_IDLE;
-    assign bus.Rvalid = rd_trans_cur == RD_RESP;
+    assign bus.Rvalid  = rd_trans_cur == RD_RESP;
+    assign bus.Rid     = arid_r;
+    assign bus.Rlast   = 1'b1;
+
     always_ff @(posedge clk) begin
         if(rd_trans_cur == RD_BUSY && cnt == LATENCY - 1) begin
             bus.Rdata <= MEM[rd_idx]; // 此处还未处理读写冲突
@@ -122,7 +115,8 @@ module RAM #(parameter XLEN = 32, DEPTH = 1024*1024) (
             | (MEM[wr_idx] & ~full_mask);
         end
     end
-    assign bus.BrespValid = wr_trans_cur == WR_RESP;
-    assign bus.Bresp = 2'b00;
+    assign bus.Bvalid = wr_trans_cur == WR_RESP;
+    assign bus.Bresp  = 2'b00;
+    assign bus.Bid    = awid_r;
 
 endmodule
