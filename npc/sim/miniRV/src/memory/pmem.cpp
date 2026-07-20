@@ -1,9 +1,16 @@
 #include "common.h"
 #include "monitor.h"
 #include "Simlator.hpp"
+#include <cstdio>
 #include <cstring>
+#include <algorithm>
 
 static uint8_t* pmem = nullptr;
+
+// ysyxSoC MROM：0x20000000，大小 4KB；内容由 load_mrom(.bin) 填入，DPI mrom_read 读出
+static constexpr uint32_t MROM_BASE = 0x20000000;
+static constexpr size_t   MROM_SIZE = 0x1000;
+static uint8_t mrom[MROM_SIZE];
 
 uint8_t* guest_to_host(paddr_t paddr) { return pmem + paddr - CONFIG_MBASE; }
 paddr_t host_to_guest(uint8_t *haddr) { return haddr - pmem + CONFIG_MBASE; }
@@ -28,8 +35,31 @@ void pmem_write(paddr_t addr, int len, word_t data) {
     }
 }
 
+/** 把 char-test.bin 装入 mrom[]；超出 4KB 截断。path==nullptr 则清零。 */
+long load_mrom(const char *path) {
+    memset(mrom, 0, sizeof(mrom));
+    if (path == nullptr) {
+        Log("MROM: no image, filled with zeros");
+        return 0;
+    }
+
+    FILE *fp = fopen(path, "rb");
+    Assert(fp, "Can not open MROM image '%s'", path);
+
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    long n = std::min<long>(size, (long)MROM_SIZE);
+    Assert(fread(mrom, 1, n, fp) == (size_t)n, "fread MROM failed");
+    fclose(fp);
+
+    Log("MROM loaded from %s, %ld bytes -> [0x%08x, 0x%08x)",
+        path, n, MROM_BASE, MROM_BASE + (uint32_t)n);
+    return n;
+}
+
 void init_mem() {
-    // SoC 模式下不再绑定 RTL 内 RAM.MEM；host 侧独占 pmem（DiffTest / SDB / load_img）
     if (pmem == nullptr) {
         pmem = (uint8_t*)malloc(CONFIG_MSIZE);
         Assert(pmem, "Cannot allocate host pmem, size = %d", CONFIG_MSIZE);
@@ -38,6 +68,7 @@ void init_mem() {
     Log("physical memory area [" FMT_PADDR ", " FMT_PADDR "]", PMEM_LEFT, PMEM_RIGHT);
     Log("pmem host ptr = %p (malloc)", pmem);
     Log("Memory Trace: %s", MUXDEF(CONFIG_MTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
+    Log("MROM built-in char-test ready @ 0x%08x (lui/sb UART 'A'/'\\n'/j)", MROM_BASE);
 }
 
 extern void print_trap_state(Simlator* cpu, int state);
@@ -66,12 +97,11 @@ extern "C" {
         assert(0);
     }
 
+    // 按字返回小端内容（与 AXI RDATA 一致）
     void mrom_read(int32_t addr, int32_t *data) {
-        if(addr >= 0x20000000 && addr < 0x20001000) {
-            *data = 0x00100073;
-        } else {
-            *data = 0;
-            assert(0);
-        }
+        uint32_t off = (uint32_t)addr - MROM_BASE;
+        Assert(off < MROM_SIZE && (off & 3u) == 0,
+               "mrom_read bad addr 0x%08x", (uint32_t)addr);
+        memcpy(data, &mrom[off], sizeof(int32_t));
     }
 }

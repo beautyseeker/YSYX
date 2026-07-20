@@ -55,6 +55,7 @@ VERILATOR_FLAGS = -MMD --build -cc -sv \
 	-O3 --x-assign fast --x-initial fast \
 	--timescale 1ns/1ns \
 	--no-timing \
+	--autoflush \
 	--top-module $(TOP) \
 	--Mdir $(OBJ_DIR)/$(MODULE)
 
@@ -84,9 +85,9 @@ SIM_TB   := $(SIM_DIR)/sim_$(TOP).cpp
 SIM_SRCS := $(shell find $(SIM_DIR)/src -name '*.cpp' -o -name '*.c' 2>/dev/null | sort)
 SIM_SRCS := $(filter-out %/npc_sim_main.cpp,$(SIM_SRCS))
 
-DIFF_SO  ?= $(NEMU_HOME)/build/riscv32-nemu-interpreter-so
+DIFF_SO  ?=
 SIM_ARGS  = $(IMAGE)
-SIM_ARGS += $(if $(wildcard $(DIFF_SO)),--diff=$(DIFF_SO),)
+SIM_ARGS += $(if $(DIFF_SO),$(if $(wildcard $(DIFF_SO)),--diff=$(DIFF_SO),),)
 SIM_ARGS += $(if $(BATCH),--batch,)
 
 LDFLAGS_SIM := -lcapstone -lreadline -lhistory -ldl

@@ -79,7 +79,7 @@ module LSU #(parameter XLEN = 32)
     end
 
     assign bus.ARaddr = addr;
-    assign bus.ARvalid = mem_read_en;
+    assign bus.ARvalid = mem_read_en && (rd_cur == RD_IDLE);
     assign bus.ARid    = '0;
     assign bus.ARlen   = '0;
     assign bus.ARsize  = axi_size(mem_size);
@@ -87,13 +87,13 @@ module LSU #(parameter XLEN = 32)
     assign bus.Rready  = (rd_cur == RD_WAIT_RESP);
 
     assign bus.AWaddr  = addr;
-    assign bus.AWvalid = mem_write_en;
+    assign bus.AWvalid = mem_write_en && (wr_cur == WR_IDLE);
     assign bus.AWid    = '0;
     assign bus.AWlen   = '0;
     assign bus.AWsize  = axi_size(mem_size);
     assign bus.AWburst = 2'b01;
     assign bus.Wdata   = store_data << (byte_offset * 8);
-    assign bus.Wvalid  = mem_write_en;
+    assign bus.Wvalid  = mem_write_en &&  (wr_cur == WR_IDLE);
     assign bus.Wlast   = 1'b1;
     assign bus.Bready  = (wr_cur == WR_WAIT_RESP);
 

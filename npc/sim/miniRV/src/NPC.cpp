@@ -68,7 +68,7 @@ void Simlator::clock_tick(uint64_t n) {
 
 void Simlator::init(int argc, char **argv) {
     config->parse(argc, argv);
-    reset();
+    // 不在这里 reset：等 init_monitor→load_mrom 装好镜像后再复位
     init_DUT_state();
 }
 

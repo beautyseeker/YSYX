@@ -11,6 +11,7 @@ void init_sdb();
 void init_disasm();
 void init_elf(const char *filename);
 void sdb_mainloop();
+long load_mrom(const char *path);
 
 extern uint8_t* guest_to_host(paddr_t addr);
 
@@ -67,6 +68,7 @@ static int difftest_port = 1234;
 static long load_img() {
   if (img_file == NULL) {
     Log("No image is given. Use the default build-in image.");
+    load_mrom(nullptr);
     return 4096; // built-in image size
   }
 
@@ -83,6 +85,8 @@ static long load_img() {
   assert(ret == 1);
 
   fclose(fp);
+  /* SoC：同一份 .bin 装入 host MROM，供 DPI mrom_read 使用 */
+  load_mrom(img_file);
   return size;
 }
 
@@ -146,6 +150,10 @@ void init_monitor(int argc, char *argv[]) {
 
   /* Load the image to memory. This will overwrite the built-in image. */
   long img_size = load_img();
+
+  /* MROM 装好后再复位，保证从 0x20000000 取到真实指令 */
+  Simlator::instance->reset();
+  Simlator::instance->init_DUT_state();
 
   /* Initialize differential testing. */
   init_difftest(diff_so_file, img_size, difftest_port);
