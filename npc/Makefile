@@ -60,7 +60,7 @@ VERILATOR_FLAGS = -MMD --build -cc -sv \
 	--Mdir $(OBJ_DIR)/$(MODULE)
 
 # 波形：make TRACE=1 开启 --trace（注意磁盘；默认关闭以免 VCD 撑爆）
-VERILATOR_FLAGS += $(if $(TRACE),--trace,)
+VERILATOR_FLAGS += $(if $(filter 1,$(TRACE)),--trace,)
 
 # 下面这些 -I 只给仿真 C++（g++）用，与 Verilog `include 无关
 INC_PATH  := $(NPC_ROOT)/sim/miniRV/include
@@ -72,7 +72,7 @@ CXXFLAGS_COMMON := $(INCFLAGS) \
 	-DTOP_NAME=V$(TOP) \
 	-DTOP_HEADER=V$(TOP).h \
 	-DTOP_ROOT_HEADER=V$(TOP)___024root.h \
-	$(if $(TRACE),-DCONFIG_WAVE,) \
+	$(if $(filter 1,$(TRACE)),-DCONFIG_WAVE,)  \
 	-g
 
 # ysyx 提交追踪（保留，勿删 sim 里的 git_commit）

@@ -67,4 +67,9 @@ module WBU #(parameter XLEN = 32, ADDR_WIDTH = 18)
             PC_next = PCInc4;
     end
 
+    // logic condition, non_condition;
+    // assign condition = branch_taken && ctrl_sig.PC_sel == PC_BRANCH;
+    // assign non_condition = ctrl_sig.PC_sel == PC_JMP;
+    // assign o_flush = ctrl_sig.jmp_en && (condition || non_condition);
+
 endmodule

@@ -80,6 +80,7 @@ module ysyx_26020061 #(
     logic [DATA_WIDTH-1:0] gpr [REG_COUNT-1:0] /* verilator public_flat_rd */;
     CSR_bundle_out csr_bundle /* verilator public_flat_rd */;
     logic fire /* verilator public_flat_rd */;
+    logic flush;
 
     logic rst_n;
     assign rst_n = ~reset;

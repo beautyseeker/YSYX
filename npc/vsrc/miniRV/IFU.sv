@@ -6,6 +6,7 @@ module IFU #(parameter DATA_WIDTH = 32, ADDR_WIDTH = 18, RESET_VEC = 32'h8000_00
     input logic                  rst_n,
     input logic [DATA_WIDTH-1:0] PC_next,
     input logic                  idu_ready,
+    // input logic                  i_flush,
 
     output logic [DATA_WIDTH-1:0] PC_current,
     output logic [DATA_WIDTH-1:0] instruction,

@@ -1,116 +1,125 @@
 [*]
 [*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
-[*] Thu Jul 16 11:19:12 2026
+[*] Thu Jul 23 10:53:25 2026
 [*]
-[dumpfile] "/home/passion/ysyx-workbench/npc/waveform.vcd"
-[dumpfile_mtime] "Thu Jul 16 11:17:39 2026"
-[dumpfile_size] 1511115652
+[dumpfile] "/home/passion/ysyx-workbench/npc/build/wave/ysyxSoCFull.vcd"
+[dumpfile_mtime] "Thu Jul 23 10:21:24 2026"
+[dumpfile_size] 396341986
 [savefile] "/home/passion/ysyx-workbench/npc/config.gtkw"
-[timestart] 7
+[timestart] 105
 [size] 3776 2081
-[pos] -1 -1
-*-1.570997 10 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] -27 -24
+*-2.170997 196 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] TOP.
-[treeopen] TOP.top_TopMiniRV.
-[treeopen] TOP.top_TopMiniRV.ifu.
-[treeopen] TOP.top_TopMiniRV.lsu.
+[treeopen] TOP.ysyxSoCFull.
+[treeopen] TOP.ysyxSoCFull.asic.
+[treeopen] TOP.ysyxSoCFull.asic.cpu.
+[treeopen] TOP.ysyxSoCFull.asic.cpu.cpu.
+[treeopen] TOP.ysyxSoCFull.asic.cpu.cpu.lsu.
 [sst_width] 297
-[signals_width] 410
+[signals_width] 450
 [sst_expanded] 1
 [sst_vpaned_height] 576
-@28
-TOP.clk
-TOP.rst_n
-@200
--
--
-@22
-TOP.top_TopMiniRV.PC_current[31:0]
-TOP.top_TopMiniRV.PC_next[31:0]
-TOP.top_TopMiniRV.instruction[31:0]
-TOP.top_TopMiniRV.exu.ALU_op[3:0]
-TOP.top_TopMiniRV.exu.alu_a[31:0]
-TOP.top_TopMiniRV.exu.alu_b[31:0]
-TOP.top_TopMiniRV.alu_result[31:0]
 @200
 -
 -
 @28
-TOP.top_TopMiniRV.ifu_valid
-TOP.top_TopMiniRV.idu_ready
-TOP.top_TopMiniRV.lsu_ready
-TOP.top_TopMiniRV.fire
+TOP.ysyxSoCFull.asic.cpu.cpu.clock
+TOP.ysyxSoCFull.asic.cpu.cpu.reset
+@22
+TOP.ysyxSoCFull.asic.cpu.cpu.PC_current[31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.instruction[31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.PC_next[31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.alu_a[31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.alu_b[31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.alu_result[31:0]
+@28
+TOP.ysyxSoCFull.asic.cpu.cpu.fire
+TOP.ysyxSoCFull.asic.cpu.cpu.idu_ready
+TOP.ysyxSoCFull.asic.cpu.cpu.ifu_valid
 @200
 -
--
-@22
-TOP.top_TopMiniRV.lsu.addr[31:0]
-@28
-TOP.top_TopMiniRV.lsu.mem_write_en
-TOP.top_TopMiniRV.lsu.mem_read_en
-@22
-TOP.top_TopMiniRV.lsu.load_data[31:0]
-TOP.top_TopMiniRV.lsu.store_data[31:0]
-@28
-TOP.top_TopMiniRV.lsu.byte_offset[1:0]
-@200
 -
 -
 -
 @28
-TOP.top_TopMiniRV.ifu.current[1:0]
-TOP.top_TopMiniRV.ifu.next[1:0]
-@200
--
--
-@22
-TOP.top_TopMiniRV.idu.rs1_addr[3:0]
-TOP.top_TopMiniRV.idu.immB[12:0]
-@200
--
-@22
-TOP.gpr[0][31:0]
-TOP.gpr[1][31:0]
-TOP.gpr[2][31:0]
-TOP.gpr[3][31:0]
-TOP.gpr[4][31:0]
-TOP.gpr[5][31:0]
-TOP.gpr[6][31:0]
-TOP.gpr[7][31:0]
-TOP.gpr[8][31:0]
-TOP.gpr[9][31:0]
-TOP.gpr[10][31:0]
-TOP.gpr[11][31:0]
-TOP.gpr[12][31:0]
-TOP.gpr[13][31:0]
-TOP.gpr[14][31:0]
-TOP.gpr[15][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu.lsu_ready
 @201
 -
+@200
+-
+-
 @22
-TOP.top_TopMiniRV.lsu_bus.ARaddr[31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.ARaddr[31:0]
 @28
-TOP.top_TopMiniRV.lsu_bus.ARready
-TOP.top_TopMiniRV.lsu_bus.ARvalid
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.ARready
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.ARvalid
 @22
-TOP.top_TopMiniRV.lsu_bus.AWaddr[31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.AWaddr[31:0]
 @28
-TOP.top_TopMiniRV.lsu_bus.AWready
-TOP.top_TopMiniRV.lsu_bus.AWvalid
-TOP.top_TopMiniRV.lsu_bus.BrespReady
-TOP.top_TopMiniRV.lsu_bus.BrespValid
-TOP.top_TopMiniRV.lsu_bus.Bresp[1:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.AWready
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.AWvalid
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Bready
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Bresp[1:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Bvalid
 @22
-TOP.top_TopMiniRV.lsu_bus.Rdata[31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Rdata[31:0]
 @28
-TOP.top_TopMiniRV.lsu_bus.Rready
-TOP.top_TopMiniRV.lsu_bus.Rresp[1:0]
-TOP.top_TopMiniRV.lsu_bus.Rvalid
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Rready
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Rresp[1:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Rvalid
 @22
-TOP.top_TopMiniRV.lsu_bus.Wdata[31:0]
-TOP.top_TopMiniRV.lsu_bus.Wmask[3:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Wdata[31:0]
 @28
-TOP.top_TopMiniRV.lsu_bus.Wready
-TOP.top_TopMiniRV.lsu_bus.Wvalid
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Wready
+@22
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Wstrb[3:0]
+@28
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu_bus.Wvalid
+@200
+-
+@28
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu.rd_cur[1:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.lsu.wr_cur[1:0]
+@200
+-
+@22
+TOP.ysyxSoCFull.asic.cpu.cpu.ifu_bus.ARaddr[31:0]
+@28
+TOP.ysyxSoCFull.asic.cpu.cpu.ifu_bus.ARready
+TOP.ysyxSoCFull.asic.cpu.cpu.ifu_bus.ARsize[2:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.ifu_bus.ARvalid
+@22
+TOP.ysyxSoCFull.asic.cpu.cpu.ifu_bus.Rdata[31:0]
+@28
+TOP.ysyxSoCFull.asic.cpu.cpu.ifu_bus.Rready
+TOP.ysyxSoCFull.asic.cpu.cpu.ifu_bus.Rresp[1:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.ifu_bus.Rvalid
+@200
+-
+@22
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[0][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[1][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[2][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[3][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[4][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[5][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[6][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[7][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[8][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[9][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[10][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[11][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[12][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[13][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[14][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[15][31:0]
+@200
+-
+-
+-
+-
+-
+-
 [pattern_trace] 1
 [pattern_trace] 0

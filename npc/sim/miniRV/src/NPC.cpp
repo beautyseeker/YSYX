@@ -155,12 +155,13 @@ bool Simlator::reset() {
     sim_state = RUNNING;
     // SoC：clock + 高有效 reset；外部输入拉到确定值
     top->reset = 1;
+    clock_tick(15);
     top->externalPins_gpio_in = 0;
     top->externalPins_ps2_clk = 0;
     top->externalPins_ps2_data = 0;
     top->externalPins_uart_rx = 1;
-    clock_tick(5);
     top->reset = 0;
+    clock_tick(15);
     statistic->reset();
     statistic->boot_time = get_time_internal();
     return true;

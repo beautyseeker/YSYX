@@ -34,6 +34,23 @@ module LSU #(parameter XLEN = 32)
     endfunction
 
     enum logic [1:0] {RD_IDLE, RD_WAIT_RESP} rd_cur, rd_next;
+    logic aw_done, w_done;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            aw_done <= 1'b0;
+            w_done  <= 1'b0;
+        end else begin
+            if (wr_cur == WR_IDLE) begin
+                if (bus.AWvalid && bus.AWready) aw_done <= 1'b1;
+                if (bus.Wvalid  && bus.Wready)  w_done  <= 1'b1;
+            end
+            if (wr_cur == WR_WAIT_RESP && bus.Bvalid && bus.Bready) begin
+                aw_done <= 1'b0;
+                w_done  <= 1'b0;
+            end
+        end
+    end
+
     always_comb begin
         case(rd_cur)
             RD_IDLE: begin
@@ -56,7 +73,8 @@ module LSU #(parameter XLEN = 32)
     always_comb begin
         case(wr_cur)
             WR_IDLE: begin
-                if((bus.AWvalid && bus.AWready) | (bus.Wvalid && bus.Wready)) begin
+                if ((bus.AWvalid && bus.AWready || aw_done) &&
+                    (bus.Wvalid  && bus.Wready  || w_done)) begin
                     wr_next = WR_WAIT_RESP;
                 end
             end
@@ -71,6 +89,7 @@ module LSU #(parameter XLEN = 32)
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
             rd_cur <= RD_IDLE;
+            wr_cur <= WR_IDLE;
         end
         else begin
             rd_cur <= rd_next;
@@ -87,13 +106,13 @@ module LSU #(parameter XLEN = 32)
     assign bus.Rready  = (rd_cur == RD_WAIT_RESP);
 
     assign bus.AWaddr  = addr;
-    assign bus.AWvalid = mem_write_en && (wr_cur == WR_IDLE);
+    assign bus.AWvalid = mem_write_en && (wr_cur == WR_IDLE) && !aw_done;
     assign bus.AWid    = '0;
     assign bus.AWlen   = '0;
     assign bus.AWsize  = axi_size(mem_size);
     assign bus.AWburst = 2'b01;
     assign bus.Wdata   = store_data << (byte_offset * 8);
-    assign bus.Wvalid  = mem_write_en &&  (wr_cur == WR_IDLE);
+    assign bus.Wvalid  = mem_write_en &&  (wr_cur == WR_IDLE) && !w_done;
     assign bus.Wlast   = 1'b1;
     assign bus.Bready  = (wr_cur == WR_WAIT_RESP);
 

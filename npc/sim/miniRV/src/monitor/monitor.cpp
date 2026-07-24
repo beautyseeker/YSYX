@@ -68,25 +68,13 @@ static int difftest_port = 1234;
 static long load_img() {
   if (img_file == NULL) {
     Log("No image is given. Use the default build-in image.");
-    load_mrom(nullptr);
     return 4096; // built-in image size
   }
 
-  FILE *fp = fopen(img_file, "rb");
-  Assert(fp, "Can not open '%s'", img_file);
-
-  fseek(fp, 0, SEEK_END);
-  long size = ftell(fp);
-
+  /* ysyxSoC：程序在 MROM@0x20000000，经 DPI mrom_read 取指；勿再写入 guest_to_host(RESET_VECTOR)
+   *（RESET_VECTOR 仍是 0x80000000，与 SRAM 映射混用会越界 segfault）。需要裸 .bin，不是 .hex。 */
+  long size = load_mrom(img_file);
   Log("The image is %s, size = %ld", img_file, size);
-
-  fseek(fp, 0, SEEK_SET);
-  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);
-  assert(ret == 1);
-
-  fclose(fp);
-  /* SoC：同一份 .bin 装入 host MROM，供 DPI mrom_read 使用 */
-  load_mrom(img_file);
   return size;
 }
 

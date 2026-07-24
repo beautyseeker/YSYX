@@ -8,29 +8,61 @@
 static uint8_t* pmem = nullptr;
 
 // ysyxSoC MROM：0x20000000，大小 4KB；内容由 load_mrom(.bin) 填入，DPI mrom_read 读出
-static constexpr uint32_t MROM_BASE = 0x20000000;
-static constexpr size_t   MROM_SIZE = 0x1000;
+constexpr uint32_t MROM_BASE = 0x20000000;
+constexpr size_t   MROM_SIZE = 0x1000;
 static uint8_t mrom[MROM_SIZE];
 
-uint8_t* guest_to_host(paddr_t paddr) { return pmem + paddr - CONFIG_MBASE; }
-paddr_t host_to_guest(uint8_t *haddr) { return haddr - pmem + CONFIG_MBASE; }
+constexpr uint32_t SRAM_BASE = 0x0f000000;
+constexpr size_t   SRAM_SIZE = 0x2000;
+
+bool in_mrom(paddr_t addr) {
+    return addr >= MROM_BASE && addr < MROM_BASE + MROM_SIZE;
+}
+bool in_sram(paddr_t addr) {
+    return addr >= SRAM_BASE && addr < SRAM_BASE + SRAM_SIZE;
+}
+
+extern "C" void mrom_read(int32_t addr, int32_t *data);
+
+uint8_t* guest_to_host(paddr_t paddr) {
+    Assert(in_sram(paddr), "guest_to_host: addr 0x%08x not in SRAM", (uint32_t)paddr);
+    return pmem + (paddr - SRAM_BASE);
+}
+paddr_t host_to_guest(uint8_t *haddr) { return haddr - pmem + SRAM_BASE; }
+
+/** 按 guest 物理地址读：MROM / SRAM；供 sdb `x` 与 DiffTest 使用（非 RTL 总线） */
+word_t paddr_read(paddr_t addr, int len) {
+    if (in_mrom(addr)) {
+        Assert((addr & 3u) == 0 && len == 4,
+               "MROM host read must be word-aligned, addr=0x%08x len=%d", (uint32_t)addr, len);
+        int32_t data;
+        mrom_read((int32_t)addr, &data);
+        return (word_t)data;
+    }
+    if (in_sram(addr)) {
+        switch (len) {
+            case 1: return *(uint8_t  *)(pmem + addr - SRAM_BASE);
+            case 2: return *(uint16_t *)(pmem + addr - SRAM_BASE);
+            case 4: return *(uint32_t *)(pmem + addr - SRAM_BASE);
+            IFDEF(CONFIG_ISA64, case 8: return *(uint64_t *)(pmem + addr - SRAM_BASE));
+            default: MUXDEF(CONFIG_RT_CHECK, assert(0), return 0);
+        }
+    }
+    Assert(0, "paddr_read: unmapped addr 0x%08x", (uint32_t)addr);
+    return 0;
+}
 
 word_t pmem_read(paddr_t addr, int len) {
-    switch (len) {
-        case 1: return *(uint8_t  *)(pmem + addr - CONFIG_MBASE);
-        case 2: return *(uint16_t *)(pmem + addr - CONFIG_MBASE);
-        case 4: return *(uint32_t *)(pmem + addr - CONFIG_MBASE);
-        IFDEF(CONFIG_ISA64, case 8: return *(uint64_t *)(pmem + addr - CONFIG_MBASE));
-        default: MUXDEF(CONFIG_RT_CHECK, assert(0), return 0);
-    }
+    return paddr_read(addr, len);
 }
 
 void pmem_write(paddr_t addr, int len, word_t data) {
+    Assert(in_sram(addr), "pmem_write: addr 0x%08x not in SRAM", (uint32_t)addr);
     switch (len) {
-        case 1: *(uint8_t  *)(pmem + addr - CONFIG_MBASE) = data; return;
-        case 2: *(uint16_t *)(pmem + addr - CONFIG_MBASE) = data; return;
-        case 4: *(uint32_t *)(pmem + addr - CONFIG_MBASE) = data; return;
-        IFDEF(CONFIG_ISA64, case 8: *(uint64_t *)(pmem + addr - CONFIG_MBASE) = data; return);
+        case 1: *(uint8_t  *)(pmem + addr - SRAM_BASE) = data; return;
+        case 2: *(uint16_t *)(pmem + addr - SRAM_BASE) = data; return;
+        case 4: *(uint32_t *)(pmem + addr - SRAM_BASE) = data; return;
+        IFDEF(CONFIG_ISA64, case 8: *(uint64_t *)(pmem + addr - SRAM_BASE) = data; return);
         IFDEF(CONFIG_RT_CHECK, default: assert(0));
     }
 }
@@ -61,14 +93,14 @@ long load_mrom(const char *path) {
 
 void init_mem() {
     if (pmem == nullptr) {
-        pmem = (uint8_t*)malloc(CONFIG_MSIZE);
-        Assert(pmem, "Cannot allocate host pmem, size = %d", CONFIG_MSIZE);
-        memset(pmem, 0, CONFIG_MSIZE);
+        pmem = (uint8_t*)malloc(SRAM_SIZE);
+        Assert(pmem, "Cannot allocate host SRAM mirror, size = %zu", SRAM_SIZE);
+        memset(pmem, 0, SRAM_SIZE);
     }
-    Log("physical memory area [" FMT_PADDR ", " FMT_PADDR "]", PMEM_LEFT, PMEM_RIGHT);
-    Log("pmem host ptr = %p (malloc)", pmem);
+    Log("SRAM mirror [" FMT_PADDR ", " FMT_PADDR "]",
+        (paddr_t)SRAM_BASE, (paddr_t)(SRAM_BASE + SRAM_SIZE - 1));
+    Log("pmem host ptr = %p (malloc %zu)", pmem, SRAM_SIZE);
     Log("Memory Trace: %s", MUXDEF(CONFIG_MTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
-    Log("MROM built-in char-test ready @ 0x%08x (lui/sb UART 'A'/'\\n'/j)", MROM_BASE);
 }
 
 extern void print_trap_state(Simlator* cpu, int state);

@@ -146,7 +146,7 @@ endif
 -include $(addprefix $(DST_DIR)/, $(addsuffix .d, $(basename $(SRCS))))
 
 ## 6. Miscellaneous
-
+TRACE := 1
 ### Build order control
 image: image-dep
 archive: $(ARCHIVE)

@@ -5,7 +5,7 @@
 #define UART_TX   0x00
 
 #define SRAM_BASE 0x0f000000
-#define SRAM_SIZE 0x00f00000
+#define SRAM_SIZE 0x00002000
 
 int main(const char *args);
 
@@ -27,8 +27,6 @@ void halt(int code) {
 }
 
 void _trm_init() {
-  // putch('S');
   int ret = main(mainargs);
-  // putch('F');
   halt(ret);
 }
