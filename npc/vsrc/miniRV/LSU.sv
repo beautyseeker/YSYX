@@ -168,6 +168,14 @@ module LSU #(parameter XLEN = 32)
                 // LSU 用 x_mask 已能正确完成非对齐访存，仅记录异常码供 trap 使用，不 abort 仿真
                 $warning("MISALIGNED access at addr=0x%08x", addr);
             end
+            if(bus.Rresp != 2'b00) begin
+                $error("AXI4 Master LSU got read error code:%x at addr=0x%08x", 
+                bus.Rresp, bus.ARaddr, bus.Rdata);
+            end
+            if(bus.Bresp != 2'b00) begin
+                $error("AXI4 Master LSU got write error code:%x at addr=0x%08x", 
+                bus.Bresp, bus.AWaddr, bus.Wdata);
+            end
         end
     end
 

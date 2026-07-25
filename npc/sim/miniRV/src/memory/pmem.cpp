@@ -129,11 +129,12 @@ extern "C" {
         assert(0);
     }
 
-    // 按字返回小端内容（与 AXI RDATA 一致）
+    // 按「字对齐地址」返回整个字（小端）。
+    // LSU 会按 ARaddr[1:0] 从 RDATA 里抽字节；若这里按非对齐 addr 起读 4 字节，
+    // 再配合 LSU 的 lane 选择，lbu 会变成隔字节取值（ABCDEF→ACEGEG）。
     void mrom_read(int32_t addr, int32_t *data) {
-        uint32_t off = (uint32_t)addr - MROM_BASE;
-        Assert(off < MROM_SIZE && (off & 3u) == 0,
-               "mrom_read bad addr 0x%08x", (uint32_t)addr);
+        uint32_t off = ((uint32_t)addr - MROM_BASE) & ~3u;
+        Assert(off + 3 < MROM_SIZE, "mrom_read bad addr 0x%08x", (uint32_t)addr);
         memcpy(data, &mrom[off], sizeof(int32_t));
     }
 }

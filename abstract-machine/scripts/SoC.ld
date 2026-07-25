@@ -15,7 +15,7 @@ SECTIONS {
     _rodata_start = .;
     *(.rodata*) 
   } > MROM
-  _erodata = .;
+  _etext = .;
 
   /* RAM地址空间、存放静态数据段、未初始化数据段、堆区、栈区 */
   .data : { 
@@ -25,6 +25,7 @@ SECTIONS {
   } > SRAM AT> MROM  /* .data段地址在SRAM,但初值在MROM */
 
   _edata = .;
+  _data_LMA_start = LOADADDR(.data);
 
   .bss : {
     _bss = .;
@@ -33,10 +34,12 @@ SECTIONS {
     *(.scommon)
   } > SRAM  /* .bss段地址在SRAM,由于这个段本身就是待程序初始化，无需LMA获得初值 */
   _ebss = .;
+  _heap_start = ORIGIN(SRAM);
 
-  _stack_top = ALIGN(0x1000); /* 栈地址需4Kb页对齐 */
-  . = _stack_top + 0x400;      /* 栈大小1Kb */
-  _stack_pointer = .;
+  /* 栈指针初始地址为SRAM末尾，低地址方向压栈 */
+  _stack_pointer = ORIGIN(SRAM) + LENGTH(SRAM);
+  /* 栈区1k空间，超过则栈溢出 */
+  _stack_top = _stack_pointer - 0x400;
 
   /DISCARD/ : { *(.note*) *(.eh_frame*) *(.comment) }
 }
