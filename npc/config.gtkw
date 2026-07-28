@@ -1,28 +1,26 @@
 [*]
 [*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
-[*] Thu Jul 23 10:53:25 2026
+[*] Tue Jul 28 06:17:02 2026
 [*]
 [dumpfile] "/home/passion/ysyx-workbench/npc/build/wave/ysyxSoCFull.vcd"
-[dumpfile_mtime] "Thu Jul 23 10:21:24 2026"
-[dumpfile_size] 396341986
+[dumpfile_mtime] "Tue Jul 28 06:15:40 2026"
+[dumpfile_size] 1520028820
 [savefile] "/home/passion/ysyx-workbench/npc/config.gtkw"
-[timestart] 105
+[timestart] 357
 [size] 3776 2081
-[pos] -27 -24
-*-2.170997 196 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] -1 -1
+*-2.170997 113 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] TOP.
 [treeopen] TOP.ysyxSoCFull.
 [treeopen] TOP.ysyxSoCFull.asic.
 [treeopen] TOP.ysyxSoCFull.asic.cpu.
 [treeopen] TOP.ysyxSoCFull.asic.cpu.cpu.
 [treeopen] TOP.ysyxSoCFull.asic.cpu.cpu.lsu.
+[treeopen] TOP.ysyxSoCFull.asic.lspi.
 [sst_width] 297
-[signals_width] 450
+[signals_width] 460
 [sst_expanded] 1
-[sst_vpaned_height] 576
-@200
--
--
+[sst_vpaned_height] 561
 @28
 TOP.ysyxSoCFull.asic.cpu.cpu.clock
 TOP.ysyxSoCFull.asic.cpu.cpu.reset
@@ -37,15 +35,6 @@ TOP.ysyxSoCFull.asic.cpu.cpu.alu_result[31:0]
 TOP.ysyxSoCFull.asic.cpu.cpu.fire
 TOP.ysyxSoCFull.asic.cpu.cpu.idu_ready
 TOP.ysyxSoCFull.asic.cpu.cpu.ifu_valid
-@200
--
--
--
--
-@28
-TOP.ysyxSoCFull.asic.cpu.cpu.lsu.lsu_ready
-@201
--
 @200
 -
 -
@@ -100,14 +89,9 @@ TOP.ysyxSoCFull.asic.cpu.cpu.ifu_bus.Rvalid
 @22
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[0][31:0]
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[1][31:0]
+@23
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[2][31:0]
-TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[3][31:0]
-TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[4][31:0]
-TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[5][31:0]
-TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[6][31:0]
-TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[7][31:0]
-TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[8][31:0]
-TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[9][31:0]
+@22
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[10][31:0]
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[11][31:0]
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[12][31:0]
@@ -115,6 +99,62 @@ TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[13][31:0]
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[14][31:0]
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[15][31:0]
 @200
+-
+-
+@22
+TOP.ysyxSoCFull.asic.lspi.mspi.flash_off[23:0]
+@28
+TOP.ysyxSoCFull.asic.lspi.mspi.flash_rd_req
+TOP.ysyxSoCFull.asic.lspi.mspi.flash_wr_req
+@22
+TOP.ysyxSoCFull.asic.lspi.mspi.in_paddr[31:0]
+@28
+TOP.ysyxSoCFull.asic.lspi.mspi.in_penable
+TOP.ysyxSoCFull.asic.lspi.mspi.in_pprot[2:0]
+@22
+TOP.ysyxSoCFull.asic.lspi.mspi.in_prdata[31:0]
+@28
+TOP.ysyxSoCFull.asic.lspi.mspi.in_pready
+TOP.ysyxSoCFull.asic.lspi.mspi.in_psel
+TOP.ysyxSoCFull.asic.lspi.mspi.in_pslverr
+@22
+TOP.ysyxSoCFull.asic.lspi.mspi.in_pstrb[3:0]
+TOP.ysyxSoCFull.asic.lspi.mspi.in_pwdata[31:0]
+@28
+TOP.ysyxSoCFull.asic.lspi.mspi.in_pwrite
+TOP.ysyxSoCFull.asic.lspi.mspi.is_flash
+TOP.ysyxSoCFull.asic.lspi.mspi.reset
+TOP.ysyxSoCFull.asic.lspi.mspi.spi_irq_out
+TOP.ysyxSoCFull.asic.lspi.mspi.spi_miso
+TOP.ysyxSoCFull.asic.lspi.mspi.spi_mosi
+TOP.ysyxSoCFull.asic.lspi.mspi.spi_sck
+@22
+TOP.ysyxSoCFull.asic.lspi.mspi.spi_ss[7:0]
+TOP.ysyxSoCFull.asic.lspi.mspi.spi_ss_num[31:0]
+TOP.ysyxSoCFull.asic.lspi.mspi.state[3:0]
+TOP.ysyxSoCFull.asic.lspi.mspi.state_n[3:0]
+@28
+TOP.ysyxSoCFull.asic.lspi.mspi.wb_ack
+@22
+TOP.ysyxSoCFull.asic.lspi.mspi.wb_adr[4:0]
+@28
+TOP.ysyxSoCFull.asic.lspi.mspi.wb_cyc
+@22
+TOP.ysyxSoCFull.asic.lspi.mspi.wb_dat_i[31:0]
+TOP.ysyxSoCFull.asic.lspi.mspi.wb_dat_o[31:0]
+@28
+TOP.ysyxSoCFull.asic.lspi.mspi.wb_err
+@22
+TOP.ysyxSoCFull.asic.lspi.mspi.wb_sel[3:0]
+@28
+TOP.ysyxSoCFull.asic.lspi.mspi.wb_stb
+TOP.ysyxSoCFull.asic.lspi.mspi.wb_we
+@200
+-
+-
+-
+-
+-
 -
 -
 -

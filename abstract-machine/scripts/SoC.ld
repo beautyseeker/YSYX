@@ -11,12 +11,12 @@ SECTIONS {
   .text : {
     KEEP(*(entry))  /* KEEP强制保留.entry节防止被链接器优化 */
     *(.text*)
-  } > MROM   /* .text段地址在MROM,初值固化在内部无需LMA */
+  } > FLASH   /* .text段地址在FLASH,初值固化在内部无需LMA */
 
   .rodata : { 
     _rodata_start = .;
     *(.rodata*) 
-  } > MROM
+  } > FLASH
   _etext = .;
 
   /* RAM地址空间、存放静态数据段、未初始化数据段、堆区、栈区 */
@@ -24,7 +24,7 @@ SECTIONS {
     _data_start = .;
     *(.data*)
     *(.sdata*)
-  } > SRAM AT> MROM  /* .data段地址在SRAM,但初值在MROM */
+  } > SRAM AT> FLASH  /* .data段地址在SRAM,但初值在FLASH */
 
   _edata = .;
   _data_LMA_start = LOADADDR(.data);

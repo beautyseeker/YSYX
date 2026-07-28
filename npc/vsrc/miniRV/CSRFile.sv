@@ -28,8 +28,8 @@ module CSRFile #(parameter XLEN=32)
     logic [XLEN-1:0] mstatus, mtvec, mepc, mcause, mcycle, mcycleh, mvendorid, marchid;
 
      // 供应商ID和体系结构ID固定为0，表示这是一个简单的实现
-    assign mvendorid = 32'd19960816;
-    assign marchid = 32'hdeadbeef;
+    assign mvendorid = 32'h79737978;  // ysyx的ASCII码
+    assign marchid = 32'd26020061;   // 一生一芯学号
 
     logic [XLEN-1:0] CSR_new;
     logic [XLEN-1:0] CSR_old; 

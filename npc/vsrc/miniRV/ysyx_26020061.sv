@@ -6,7 +6,7 @@ module ysyx_26020061 #(
     parameter DATA_WIDTH = 32,
     parameter ADDR_WIDTH = 24,
     parameter REG_COUNT  = 16,
-    parameter RESET_VEC  = 32'h2000_0000
+    parameter RESET_VEC  = 32'h3000_0000
 ) (
     input  logic        clock,
     input  logic        reset,

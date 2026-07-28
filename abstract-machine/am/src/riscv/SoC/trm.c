@@ -1,6 +1,7 @@
 #include <am.h>
 #include "arch/SoC.h"
 #include <klib-macros.h>
+#include <klib.h>
 #include <stdint.h>
 
 int main(const char *args);
@@ -14,7 +15,6 @@ extern char _stack_top[], _stack_pointer[];
 
 void uart_init(void);
 void uart_putch(char ch);
-uint32_t flash_read(uint32_t addr);
 
 /* 堆：SRAM 起始 → 栈区低端（绕开栈）；栈顶初值在 _stack_pointer */
 Area heap = RANGE(SRAM_BASE, _stack_top);
@@ -37,29 +37,25 @@ static void data_seg_init() {
   }
 }
 
+static void print_vendor_info() {
+  uint32_t mvendorid_val, marchid_val;
+  asm volatile ("csrr %0, mvendorid" : "=r"(mvendorid_val));
+  asm volatile ("csrr %0, marchid"   : "=r"(marchid_val));
 
-#define FLASH_OFF  0            // char-test 在 flash[] 的片内偏移
-#define SRAM_DST   0x0f001000   // 拷贝落点（避开自己的栈/数据）
-#define LEN        56           // char-test.bin 字节数，可写死或宏
-
-static inline uint32_t bswap32(uint32_t x) {
-  return (x >> 24) | ((x >> 8) & 0xff00) | ((x << 8) & 0xff0000) | (x << 24);
-}
-
-void exec_flash_inst(void) {
-  uint8_t *dst = (uint8_t *)SRAM_DST;
-  for (uint32_t off = 0; off < LEN; off += 4) {
-    uint32_t w = bswap32(flash_read(FLASH_OFF + off));
-    *(uint32_t *)(dst + off) = w;   // 或按字节写入
+  char vendorid[4] = {0};
+  for (int i = 0; i < sizeof(vendorid); i++) {
+    vendorid[i] = (mvendorid_val >> ((sizeof(vendorid)-i-1) * 8)) & 0xFF;
   }
-  void (*entry)(void) = (void (*)(void))SRAM_DST;
-  entry();
+
+  printf("--------------------------------\n");
+  printf("vendorid: %s  marchid: %d\n", vendorid, marchid_val);
+  printf("--------------------------------\n");
 }
 
 void _trm_init() {
   data_seg_init();
   uart_init();
-  exec_flash_inst();
+  print_vendor_info();
   int ret = main(mainargs);
   halt(ret);
 }
