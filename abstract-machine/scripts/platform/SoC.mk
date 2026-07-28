@@ -5,6 +5,8 @@ AM_SRCS := riscv/SoC/start.S \
            riscv/SoC/input.c \
            riscv/SoC/cte.c \
            riscv/SoC/trap.S \
+           riscv/SoC/uart.c \
+           riscv/SoC/spi.c \
 
 CFLAGS    += -fdata-sections -ffunction-sections -O2
 LDSCRIPTS += $(AM_HOME)/scripts/SoC.ld

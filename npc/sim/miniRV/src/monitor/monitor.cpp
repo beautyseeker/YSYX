@@ -12,6 +12,7 @@ void init_disasm();
 void init_elf(const char *filename);
 void sdb_mainloop();
 long load_mrom(const char *path);
+long load_flash(const char *path);
 
 extern uint8_t* guest_to_host(paddr_t addr);
 
@@ -74,6 +75,7 @@ static long load_img() {
   /* ysyxSoC：程序在 MROM@0x20000000，经 DPI mrom_read 取指；勿再写入 guest_to_host(RESET_VECTOR)
    *（RESET_VECTOR 仍是 0x80000000，与 SRAM 映射混用会越界 segfault）。需要裸 .bin，不是 .hex。 */
   long size = load_mrom(img_file);
+  load_flash("/home/passion/ysyx-workbench/ysyxSoC/char-test.bin");
   Log("The image is %s, size = %ld", img_file, size);
   return size;
 }

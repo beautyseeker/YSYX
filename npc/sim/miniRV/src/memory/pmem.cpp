@@ -12,6 +12,10 @@ constexpr uint32_t MROM_BASE = 0x20000000;
 constexpr size_t   MROM_SIZE = 0x1000;
 static uint8_t mrom[MROM_SIZE];
 
+constexpr uint32_t FLASH_BASE = 0x30000000;
+constexpr size_t   FLASH_SIZE = 0x10000000;
+static uint8_t flash[FLASH_SIZE];
+
 constexpr uint32_t SRAM_BASE = 0x0f000000;
 constexpr size_t   SRAM_SIZE = 0x2000;
 
@@ -91,6 +95,29 @@ long load_mrom(const char *path) {
     return n;
 }
 
+long load_flash(const char *path) {
+    memset(flash, 0, sizeof(flash));
+    if (path == nullptr) {
+        Log("flash: no image, filled with zeros");
+        return 0;
+    }
+
+    FILE *fp = fopen(path, "rb");
+    Assert(fp, "Can not open flash image '%s'", path);
+
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    long n = std::min<long>(size, (long)FLASH_SIZE);
+        Assert(fread(flash, 1, n, fp) == (size_t)n, "fread flash failed");
+    fclose(fp);
+
+    Log("flash loaded from %s, %ld bytes -> [0x%08x, 0x%08x)",
+        path, n, FLASH_BASE, FLASH_BASE + (uint32_t)n);
+    return n;
+}
+
 void init_mem() {
     if (pmem == nullptr) {
         pmem = (uint8_t*)malloc(SRAM_SIZE);
@@ -121,17 +148,14 @@ extern "C" {
         cpu->set_state(SimState::END);
     }
 
-    // SoC DPI：后续按讲义接 flash/mrom 镜像；先保证可链接、不立刻 assert
+    // flash_read不同于mrom_read,它传入的addr是24位的flash索引，而非真正的总线地址
     void flash_read(int32_t addr, int32_t *data) {
-        // flash XIP 地址空间在 SoC 侧；此处暂返回 0（nop），避免未实现就 fatal
-        *data = 0;
-        (void)addr;
-        assert(0);
+        uint32_t off = ((uint32_t)addr) & ~3u;
+        Assert(off + 3 < FLASH_SIZE, "flash_read bad addr 0x%08x", (uint32_t)addr);
+        memcpy(data, &flash[off], sizeof(int32_t));
     }
 
-    // 按「字对齐地址」返回整个字（小端）。
-    // LSU 会按 ARaddr[1:0] 从 RDATA 里抽字节；若这里按非对齐 addr 起读 4 字节，
-    // 再配合 LSU 的 lane 选择，lbu 会变成隔字节取值（ABCDEF→ACEGEG）。
+    // 由于memcpy一次复制4字节，传入地址需要按「字对齐地址」返回整个字（小端）。
     void mrom_read(int32_t addr, int32_t *data) {
         uint32_t off = ((uint32_t)addr - MROM_BASE) & ~3u;
         Assert(off + 3 < MROM_SIZE, "mrom_read bad addr 0x%08x", (uint32_t)addr);
