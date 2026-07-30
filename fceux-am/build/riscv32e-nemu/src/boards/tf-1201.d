@@ -1,0 +1,22 @@
+/home/passion/ysyx-workbench/fceux-am/build/riscv32e-nemu/src/boards/tf-1201.o: \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/tf-1201.cpp \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/mapinc.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../types.h \
+ /home/passion/ysyx-workbench/abstract-machine/klib/include/klib.h \
+ /home/passion/ysyx-workbench/abstract-machine/am/include/am.h \
+ /home/passion/ysyx-workbench/abstract-machine/am/include/arch/riscv.h \
+ /home/passion/ysyx-workbench/abstract-machine/am/include/amdev.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../utils/memory.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../x6502.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../x6502struct.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../fceu.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../types.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../git.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../utils/md5.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../utils/../types.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../utils/valuearray.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../ppu.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../sound.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../state.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../cart.h \
+ /home/passion/ysyx-workbench/fceux-am/src/boards/../unif.h

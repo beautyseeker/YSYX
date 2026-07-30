@@ -1,0 +1,34 @@
+/home/passion/ysyx-workbench/fceux-am/build/riscv32e-npc/src/fceu.o: \
+ /home/passion/ysyx-workbench/fceux-am/src/fceu.cpp \
+ /home/passion/ysyx-workbench/fceux-am/src/config.h \
+ /home/passion/ysyx-workbench/fceux-am/src/types.h \
+ /home/passion/ysyx-workbench/abstract-machine/klib/include/klib.h \
+ /home/passion/ysyx-workbench/abstract-machine/am/include/am.h \
+ /home/passion/ysyx-workbench/abstract-machine/am/include/arch/riscv.h \
+ /home/passion/ysyx-workbench/abstract-machine/am/include/amdev.h \
+ /home/passion/ysyx-workbench/fceux-am/src/x6502.h \
+ /home/passion/ysyx-workbench/fceux-am/src/x6502struct.h \
+ /home/passion/ysyx-workbench/fceux-am/src/fceu.h \
+ /home/passion/ysyx-workbench/fceux-am/src/git.h \
+ /home/passion/ysyx-workbench/fceux-am/src/utils/md5.h \
+ /home/passion/ysyx-workbench/fceux-am/src/utils/../types.h \
+ /home/passion/ysyx-workbench/fceux-am/src/utils/valuearray.h \
+ /home/passion/ysyx-workbench/fceux-am/src/ppu.h \
+ /home/passion/ysyx-workbench/fceux-am/src/sound.h \
+ /home/passion/ysyx-workbench/fceux-am/src/file.h \
+ /home/passion/ysyx-workbench/fceux-am/src/emufile.h \
+ /home/passion/ysyx-workbench/fceux-am/src/utils/memory.h \
+ /home/passion/ysyx-workbench/fceux-am/src/cart.h \
+ /home/passion/ysyx-workbench/fceux-am/src/ines.h \
+ /home/passion/ysyx-workbench/fceux-am/src/palette.h \
+ /home/passion/ysyx-workbench/fceux-am/src/state.h \
+ /home/passion/ysyx-workbench/fceux-am/src/video.h \
+ /home/passion/ysyx-workbench/fceux-am/src/input.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/sdl.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/main.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../driver.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../types.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../git.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../file.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/dface.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/input.h

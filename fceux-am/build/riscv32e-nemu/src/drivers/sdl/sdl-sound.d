@@ -1,0 +1,20 @@
+/home/passion/ysyx-workbench/fceux-am/build/riscv32e-nemu/src/drivers/sdl/sdl-sound.o: \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/sdl-sound.cpp \
+ /home/passion/ysyx-workbench/abstract-machine/klib/include/klib-macros.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/sdl.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/main.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../driver.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../types.h \
+ /home/passion/ysyx-workbench/abstract-machine/klib/include/klib.h \
+ /home/passion/ysyx-workbench/abstract-machine/am/include/am.h \
+ /home/passion/ysyx-workbench/abstract-machine/am/include/arch/riscv.h \
+ /home/passion/ysyx-workbench/abstract-machine/am/include/amdev.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../git.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../utils/md5.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../utils/../types.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../utils/valuearray.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../file.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../emufile.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/dface.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/input.h \
+ /home/passion/ysyx-workbench/fceux-am/src/drivers/sdl/../../config.h
