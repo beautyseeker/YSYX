@@ -1,4 +1,3 @@
-#include "trap.h"
 #include <stdint.h>
 #include <klib.h>
 #include <klib-macros.h>

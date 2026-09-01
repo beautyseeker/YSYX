@@ -16,9 +16,13 @@
 #define SPI_CTRL_ASS         (1u << 13)     
 
 #define SPI_SS_BITREV        (1u << 7) /* slave #7 */
-#define SPI_SS_FLASH        (1u << 0) /* slave #0 */
+#define SPI_SS_FLASH         (1u << 0) /* slave #0 */
+#define SPI_SS_PSRAM         (1u << 1) /* slave #1 */
 
 #define FLASH_CFG (SPI_CTRL_ASS | SPI_CTRL_CHAR_LEN(64))
+#define PSRAM_CFG (SPI_CTRL_ASS | SPI_CTRL_CHAR_LEN(64))
+#define PSRAM_READ_CMD 0xebu
+#define PSRAM_WRITE_CMD 0x38u
 
 uint32_t spi_read(uint32_t off) {
   return *(volatile uint32_t *)(SPI_BASE + off);

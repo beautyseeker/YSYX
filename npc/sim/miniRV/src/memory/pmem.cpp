@@ -16,8 +16,8 @@ constexpr uint32_t FLASH_BASE = 0x30000000;
 constexpr size_t   FLASH_SIZE = 0x10000000;
 static uint8_t flash[FLASH_SIZE];
 
-constexpr uint32_t SRAM_BASE = 0x0f000000;
-constexpr size_t   SRAM_SIZE = 0x2000;
+constexpr uint32_t SRAM_BASE = 0x80000000;
+constexpr size_t   SRAM_SIZE = 0x01000000;
 
 bool in_mrom(paddr_t addr) {
     return addr >= MROM_BASE && addr < MROM_BASE + MROM_SIZE;

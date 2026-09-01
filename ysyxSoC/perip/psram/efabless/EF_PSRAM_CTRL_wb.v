@@ -17,7 +17,7 @@
 `timescale              1ns/1ps
 `default_nettype        none
 
-// Using EBH Command
+// Using EBH/38H in QPI after hardware Enter-QPI (35h) at reset
 module EF_PSRAM_CTRL_wb (
     // WB bus Interface
     input   wire        clk_i,
@@ -60,15 +60,53 @@ module EF_PSRAM_CTRL_wb (
     wire        mw_wr;
     wire        mw_done;
 
-    //wire        doe;
+    // ---------- Enter QPI (35h) after reset, SPI 1-line command ----------
+    // 8 beats on dio[0]; counter advances on sck-high (same idiom as PSRAM_READER).
+    localparam [7:0] CMD_35H = 8'h35;
+
+    reg         qpi_init_done;
+    reg         init_sck;
+    reg         init_ce_n;
+    reg [7:0]   init_counter;
+
+    always @ (posedge clk_i or posedge rst_i) begin
+        if (rst_i) begin
+            qpi_init_done <= 1'b0;
+            init_ce_n     <= 1'b1;
+            init_sck      <= 1'b0;
+            init_counter  <= 8'd0;
+        end else if (!qpi_init_done) begin
+            if (init_ce_n) begin
+                // Kick off Enter-QPI transaction
+                init_ce_n    <= 1'b0;
+                init_sck     <= 1'b0;
+                init_counter <= 8'd0;
+            end else if (init_counter == 8'd8) begin
+                // 8 command bits completed
+                qpi_init_done <= 1'b1;
+                init_ce_n     <= 1'b1;
+                init_sck      <= 1'b0;
+            end else begin
+                init_sck <= ~init_sck;
+                if (init_sck)
+                    init_counter <= init_counter + 8'd1;
+            end
+        end else begin
+            init_ce_n <= 1'b1;
+            init_sck  <= 1'b0;
+        end
+    end
+
+    wire [3:0] init_dout = (init_counter < 8) ?
+                           {3'b0, CMD_35H[7 - init_counter[2:0]]} : 4'h0;
+    wire [3:0] init_douten = (!qpi_init_done && ~init_ce_n) ? 4'b0001 : 4'b0000;
 
     // WB Control Signals
     wire        wb_valid        =   cyc_i & stb_i;
     wire        wb_we           =   we_i & wb_valid;
     wire        wb_re           =   ~we_i & wb_valid;
-    //wire[3:0]   wb_byte_sel     =   sel_i & {4{wb_we}};
 
-    // The FSM
+    // The FSM (bus transactions only after QPI init)
     reg         state, nstate;
     always @ (posedge clk_i or posedge rst_i)
         if(rst_i)
@@ -79,7 +117,7 @@ module EF_PSRAM_CTRL_wb (
     always @* begin
         case(state)
             ST_IDLE :
-                if(wb_valid)
+                if(qpi_init_done && wb_valid)
                     nstate = ST_WAIT;
                 else
                     nstate = ST_IDLE;
@@ -118,17 +156,8 @@ module EF_PSRAM_CTRL_wb (
 
     wire [31:0] wdata = {byte3, byte2, byte1, byte0};
 
-    /*
-    wire [1:0]  waddr = (size==1 && sel_i[0]==1) ? 2'b00 :
-                        (size==1 && sel_i[1]==1) ? 2'b01 :
-                        (size==1 && sel_i[2]==1) ? 2'b10 :
-                        (size==1 && sel_i[3]==1) ? 2'b11 :
-                        (size==2 && sel_i[2]==1) ? 2'b10 :
-                        2'b00;
-                      */
-
-    assign mr_rd    = ( (state==ST_IDLE ) & wb_re );
-    assign mw_wr    = ( (state==ST_IDLE ) & wb_we );
+    assign mr_rd    = ( qpi_init_done & (state==ST_IDLE ) & wb_re );
+    assign mw_wr    = ( qpi_init_done & (state==ST_IDLE ) & wb_we );
 
     PSRAM_READER MR (
         .clk(clk_i),
@@ -161,12 +190,14 @@ module EF_PSRAM_CTRL_wb (
         .douten(mw_doe)
     );
 
-    assign sck  = wb_we ? mw_sck  : mr_sck;
-    assign ce_n = wb_we ? mw_ce_n : mr_ce_n;
-    assign dout = wb_we ? mw_dout : mr_dout;
-    assign douten  = wb_we ? {4{mw_doe}}  : {4{mr_doe}};
+    // Mux: init owns the QSPI pins until Enter-QPI completes
+    assign sck  = (!qpi_init_done) ? init_sck  : (wb_we ? mw_sck  : mr_sck);
+    assign ce_n = (!qpi_init_done) ? init_ce_n : (wb_we ? mw_ce_n : mr_ce_n);
+    assign dout = (!qpi_init_done) ? init_dout : (wb_we ? mw_dout : mr_dout);
+    assign douten = (!qpi_init_done) ? init_douten :
+                    (wb_we ? {4{mw_doe}}  : {4{mr_doe}});
 
     assign mw_din = din;
     assign mr_din = din;
-    assign ack_o = wb_we ? mw_done :mr_done ;
+    assign ack_o = qpi_init_done & (wb_we ? mw_done : mr_done);
 endmodule
