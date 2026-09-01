@@ -2,7 +2,8 @@ MEMORY {
   MROM (rx) : ORIGIN = 0x20000000, LENGTH = 4K
   SRAM (rw) : ORIGIN = 0x0f000000, LENGTH = 8K
   SPI  (rw) : ORIGIN = 0x10001000, LENGTH = 8K
-  FLASH(rx)  : ORIGIN = 0x30000000, LENGTH = 256M
+  FLASH(rx) : ORIGIN = 0x30000000, LENGTH = 256M
+  PSRAM(rw) : ORIGIN = 0x80000000, LENGTH = 4M
 }
 
 ENTRY(_start)
@@ -24,7 +25,7 @@ SECTIONS {
     _data_start = .;
     *(.data*)
     *(.sdata*)
-  } > SRAM AT> FLASH  /* .data段地址在SRAM,但初值在FLASH */
+  } > PSRAM AT> FLASH  /* .data段地址在SRAM,但初值在FLASH */
 
   _edata = .;
   _data_LMA_start = LOADADDR(.data);
@@ -34,14 +35,14 @@ SECTIONS {
     *(.bss*)
     *(.sbss*)
     *(.scommon)
-  } > SRAM  /* .bss段地址在SRAM,由于这个段本身就是待程序初始化，无需LMA获得初值 */
+  } > PSRAM  /* .bss段地址在SRAM,由于这个段本身就是待程序初始化，无需LMA获得初值 */
   _ebss = .;
-  _heap_start = ORIGIN(SRAM);
+  _heap_start = ORIGIN(PSRAM);
 
   /* 栈指针初始地址为SRAM末尾，低地址方向压栈 */
-  _stack_pointer = ORIGIN(SRAM) + LENGTH(SRAM);
+  _stack_pointer = ORIGIN(PSRAM) + LENGTH(PSRAM);
   /* 栈区1k空间，超过则栈溢出 */
-  _stack_top = _stack_pointer - 0x400;
+  _stack_top = _stack_pointer - 0x1000;
 
   /DISCARD/ : { *(.note*) *(.eh_frame*) *(.comment) }
 }

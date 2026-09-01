@@ -14,4 +14,7 @@
 
 #define SPI_BASE 0x10001000
 
+#define PSRAM_BASE 0x80000000
+#define PSRAM_SIZE (1 << 22)
+
 #endif

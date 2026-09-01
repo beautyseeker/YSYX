@@ -17,7 +17,7 @@ void uart_init(void);
 void uart_putch(char ch);
 
 /* 堆：SRAM 起始 → 栈区低端（绕开栈）；栈顶初值在 _stack_pointer */
-Area heap = RANGE(SRAM_BASE, _stack_top);
+Area heap = RANGE(PSRAM_BASE, _stack_top);
 
 void putch(char ch) {
   uart_putch(ch);
