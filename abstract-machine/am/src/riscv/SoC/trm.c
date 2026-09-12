@@ -16,8 +16,15 @@ extern char _stack_top[], _stack_pointer[];
 void uart_init(void);
 void uart_putch(char ch);
 
+extern uint8_t psram_test();
+extern uint8_t sram_test();
 /* 堆：SRAM 起始 → 栈区低端（绕开栈）；栈顶初值在 _stack_pointer */
 Area heap = RANGE(PSRAM_BASE, _stack_top);
+
+static int mem_test();
+static void POST_phase();
+static void data_seg_init();
+static void print_vendor_info();
 
 void putch(char ch) {
   uart_putch(ch);
@@ -35,6 +42,26 @@ static void data_seg_init() {
   while (dst < dend) {
     *dst++ = *src++;
   }
+}
+
+static void POST_phase() {
+  putstr("POST...\n");
+  mem_test();
+}
+
+static int mem_test() {
+  int success = 0;
+  success |= psram_test();
+  if (!success) {
+    putstr("PSRAM test failed\n");
+    halt(1);
+  }
+  success |= sram_test();
+  if (!success) {
+    putstr("SRAM test failed\n");
+    halt(1);
+  }
+  return success;
 }
 
 static void print_vendor_info() {
@@ -55,6 +82,7 @@ static void print_vendor_info() {
 void _trm_init() {
   data_seg_init();
   uart_init();
+  POST_phase();
   print_vendor_info();
   int ret = main(mainargs);
   halt(ret);
