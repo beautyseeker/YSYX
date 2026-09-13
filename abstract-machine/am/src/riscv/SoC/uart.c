@@ -25,7 +25,7 @@ enum {
 #define UART_LSR_TEMT   (1u << 6) /* 发送移位寄存器也空 */
 
 /* 波特率除数：baud = uart_clk / (16 * divisor)。按 SoC 时钟自行核算后填入 */
-#define UART_DLL_VAL    8u
+#define UART_DLL_VAL    1u
 #define UART_DLM_VAL    0u
 
 uint8_t uart_read(unsigned reg) {

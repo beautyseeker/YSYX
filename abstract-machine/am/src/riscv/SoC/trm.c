@@ -2,7 +2,6 @@
 #include "arch/SoC.h"
 #include <klib-macros.h>
 #include <klib.h>
-#include <stdint.h>
 
 int main(const char *args);
 
@@ -12,18 +11,20 @@ static const char mainargs[MAINARGS_MAX_LEN] = TOSTRING(MAINARGS_PLACEHOLDER); /
 extern char _data_start[], _edata[], _data_LMA_start[];
 extern char _bss[], _ebss[];
 extern char _stack_top[], _stack_pointer[];
+extern char _sram_text_start[], _sram_text_end[], _sram_text_lma[];
 
 void uart_init(void);
 void uart_putch(char ch);
 
-extern uint8_t psram_test();
-extern uint8_t sram_test();
+extern bool psram_test();
+extern bool sram_test();
 /* 堆：SRAM 起始 → 栈区低端（绕开栈）；栈顶初值在 _stack_pointer */
-Area heap = RANGE(PSRAM_BASE, _stack_top);
+Area heap = RANGE(PSRAM_BASE, PSRAM_BASE + PSRAM_SIZE);
 
-static int mem_test();
+static bool mem_test();
 static void POST_phase();
 static void data_seg_init();
+static void sram_text_init();
 static void print_vendor_info();
 
 void putch(char ch) {
@@ -44,21 +45,27 @@ static void data_seg_init() {
   }
 }
 
+/* 把 mem-test 机器码从 Flash(LMA) 拷到 SRAM(VMA) */
+static void sram_text_init() {
+  uint32_t *dst = (uint32_t *)_sram_text_start;
+  uint32_t *src = (uint32_t *)_sram_text_lma;
+  uint32_t *dend = (uint32_t *)_sram_text_end;
+  while (dst < dend) {
+    *dst++ = *src++;
+  }
+}
+
 static void POST_phase() {
   putstr("POST...\n");
   mem_test();
 }
 
-static int mem_test() {
-  int success = 0;
-  success |= psram_test();
+static bool mem_test() {
+  bool success = true;
+  success &= psram_test();
+  success &= sram_test();
   if (!success) {
-    putstr("PSRAM test failed\n");
-    halt(1);
-  }
-  success |= sram_test();
-  if (!success) {
-    putstr("SRAM test failed\n");
+    putstr("Memory test failed\n");
     halt(1);
   }
   return success;
@@ -81,6 +88,7 @@ static void print_vendor_info() {
 
 void _trm_init() {
   data_seg_init();
+  sram_text_init();
   uart_init();
   POST_phase();
   print_vendor_info();

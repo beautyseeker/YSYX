@@ -45,13 +45,16 @@ void print_statistic(Simlator* cpu) {
 
 void print_trap_state(Simlator* cpu, int state) {
   auto stat = cpu->get_statistic();
+  double cpi = (stat->inst_nr > 0)
+                 ? (double)stat->cycle_nr / (double)stat->inst_nr
+                 : 0.0;
     if(state == 0) {
-        printf(ANSI_FMT("program %s exec [%ld] inst_nr HIT A GOOD TRAP!\n", ANSI_FG_GREEN), 
-        cpu->get_img_name(), stat->inst_nr);
+        printf(ANSI_FMT("program %s exec [%lu] inst cost [%lu] cycles CPI=%.2f HIT A GOOD TRAP!\n", ANSI_FG_GREEN),
+        cpu->get_img_name(), stat->inst_nr, stat->cycle_nr, cpi);
         cpu->set_state(SimState::END);
     } else {
-        printf(ANSI_FMT("program %s exec [%ld] inst_nr HIT A BAD TRAP!\n", ANSI_FG_RED), 
-        cpu->get_img_name(), stat->inst_nr);
+        printf(ANSI_FMT("program %s exec [%lu] inst cost [%lu] cycles CPI=%.2f HIT A BAD TRAP!\n", ANSI_FG_RED),
+        cpu->get_img_name(), stat->inst_nr, stat->cycle_nr, cpi);
         cpu->set_state(SimState::ABORT);
         exit(-1);
     }

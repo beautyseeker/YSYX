@@ -8,15 +8,32 @@ MEMORY {
 
 ENTRY(_start)
 SECTIONS {
-  /* ROM地址空间，存放代码段、只读数据段 */
+  /* FLASH地址空间，存放启动代码段、只读数据段 */
   .text : {
-    KEEP(*(entry))  /* KEEP强制保留.entry节防止被链接器优化 */
+    KEEP(*(entry))
     *(.text*)
-  } > FLASH   /* .text段地址在FLASH,初值固化在内部无需LMA */
+  } > FLASH
+
+  /*
+   * mem-test 的代码 + 其只读数据（字符串、跳转表等）
+   * VMA=SRAM，LMA=Flash；开机 sram_text_init() 整段拷入再执行
+   */
+  .sram.text : {
+    . = ALIGN(4);
+    _sram_text_start = .;
+    *(.sram.text)
+    /* printf 字符串等仍叫 .rodata*，跟函数 attribute 无关，按文件收进来 */
+    *mem-test*.o(.rodata*)
+    *mem-test*.o(.srodata*)
+    . = ALIGN(4);
+    _sram_text_end = .;
+  } > SRAM AT> FLASH
+  _sram_text_lma = LOADADDR(.sram.text);
 
   .rodata : { 
     _rodata_start = .;
-    *(.rodata*) 
+    *(EXCLUDE_FILE(*mem-test*.o) .rodata*)
+    *(EXCLUDE_FILE(*mem-test*.o) .srodata*)
   } > FLASH
   _etext = .;
 
@@ -40,8 +57,8 @@ SECTIONS {
   _heap_start = ORIGIN(PSRAM);
 
   /* 栈指针初始地址为SRAM末尾，低地址方向压栈 */
-  _stack_pointer = ORIGIN(PSRAM) + LENGTH(PSRAM);
-  /* 栈区1k空间，超过则栈溢出 */
+  _stack_pointer = ORIGIN(SRAM) + LENGTH(SRAM);
+  /* 栈区4k空间，超过则栈溢出 */
   _stack_top = _stack_pointer - 0x1000;
 
   /DISCARD/ : { *(.note*) *(.eh_frame*) *(.comment) }
