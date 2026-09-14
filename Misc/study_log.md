@@ -821,7 +821,7 @@ Navy = 更丰富全面的生态库+应用程序合集 能够在上面编写比�
 链接器遭遇未定义引用时，如果是强引用会直接报错，如果是弱引用，链接器会为其填入一个默认地址值。
 .common块是链接器为处理多个源文件对同一个未初始化的全局符号冲突的机制，链接器检测到未初始化全局符号不会放.bss段，而是标记为弱符号后放.common段，待到符号解析完毕，多个弱符号冲突选取内存占用最大的那个放入可执行文件.bss段。
 
-现代gcc编译器在编译一些大型源码工程时，即便是静态链接，也不会将整个目标文件的全部符号链接到可执行文件，而是采用-fdata-section和-ffunction-section编译选项将目标文件的段切分为函数变量级别，把需要到的符号链接到最终可执行文件，不过链接器也要开启--gc-section选项才能完成最后的代码瘦身。
+现代gcc编译器在编译一些大型源码工程时，即便是静态链接，也不会将整个目标文件的全部符号链接到可执行文件，而是采用-fdata-section和-ffunction-section编译选项，将目标文件的段切分为函数变量级别如.data.func1,.data.var1，这种变量级而不是文件级的颗粒度，可以让最终的链接仅链接到所需的变量段名而非整个目标文件段，能大大减少可执行文件的体积，不过链接器也要开启--gc-section选项才能完成最后的代码瘦身。
 gcc在编译链接glibc标准库时，会根据标准库调用的实际使用情况采取一些优化措施，例如printf("string")会被优化为puts("string")，memcpy会被优化为访存汇编，`-no-builtin`选项就是屏蔽掉这种自动优化行为的
 
 现代大型项目开发为了维持ABI兼容动用了Docker环境容器化、动态链接库、控制项目符号可见性、CI\CD ABI自动检测、
@@ -1348,3 +1348,96 @@ AXI总线错误码3,疑似栈溢出,去掉了mem-test的printf调用，总线不
 第一瓶颈：一次PSRAM访存测试消耗的仿真周期数（Flash 取指事务 + PSRAM访存事务）。
 第二瓶颈：Verilator 评估整颗 SoC 的 每 cycle 成本（大数组MEM,开 wave/ITRACE都会导致单仿真周期拉长）。
 定位顺序：time + cycle_nr/CPI → SRAM vs PSRAM 对照 → ITRACE 采样 addi vs sw/lw 的 Δcycle。
+
+
+# 9/12
+
+*(.text*)中，,text*是目标文件段名通配符，而最前面的*是全体目标文件通配符,*(.text*)表示匹配所有目标文件中的全部.text段
+如果写成 main.o(.text*)，那就限定了只有 main.o 里的 .text 段才会被放进当前的输出段中；而写成 *(.text*) 则表示“全都要”
+
+对于bootloader代码部分，通常在源码阶段就通过编译器命令强制用段名进行分组，而不是在链接脚本中再用EXCLUDE_FILE命令黑名单
+```C
+__attribute__((section(".sram.text"))) void psram_test(void);
+/* 或整文件： */
+#pragma GCC section text=".sram.text" rodata=".sram.rodata"
+```
+
+# 9/13
+PSRAM是DRAM的一种封装产品形态，它内部是自行刷新的DRAM阵列，对外则是做成看起来像SRAM的存储介质，相对于真正的DRAM芯片,PSRAM引脚数更少，控制器更简单，成本更低，适用于低速低功耗场景。
+
+rt-thread中的`extra.ld`链接脚本的作用是：在内存中开辟并集中管理几个特殊的“表（Table）”和“应用数据区”，供系统内核、命令行组件以及自动化初始化机制使用。
+
+先在ROM/flash这种只读存储介质中放SRAM的自检程序
+
+# 9/14
+SoC启动am程序时出现明显的性能瓶颈，主要体现在数据初始化阶段，从flash中搬运数据到PSRAM速度很慢。
+Flash 只负责boot点燃，SRAM 负责数据初始化搬砖，PSRAM 负责载入程序长跑
+
+上电 / Flash 有镜像
+        │
+        ▼
+   [_start] Flash          设 sp → SRAM 末端
+        │
+        ▼
+ [_flash_boot] FSBL Flash  拷 .sram.loader：Flash → SRAM
+        │
+        ▼
+ [_sram_loader] SSBL SRAM  拷 .text/.data：Flash → PSRAM
+        │
+        ▼
+  [_trm_init] 程序 PSRAM   uart → (可选 bss/mem-test/POST) → main → halt
+
+Flash (LMA 连续往上排，也是 .bin 内容顺序的主要来源)
+┌─────────────────────────────────────────────┐
+│ .boot          VMA=LMA=Flash                 │  ← FSBL：_start, _flash_boot
+│   entry + start.S + .text.boot               │
+├─────────────────────────────────────────────┤
+│ .sram.loader   VMA=SRAM, LMA=Flash           │  ← SSBL 镜像在 Flash；运行在 SRAM
+│   _sram_loader, loader_memcpy                │
+├─────────────────────────────────────────────┤
+│ .text          VMA=PSRAM, LMA=Flash          │  ← 主程序代码（含 _trm_init）
+├─────────────────────────────────────────────┤
+│ .rodata        VMA=LMA=Flash                 │  ← 常量串等，XIP 直接读 Flash
+├─────────────────────────────────────────────┤
+│ .sram.text     VMA=SRAM, LMA=Flash           │  ← mem-test（可选，需再拷一次）
+├─────────────────────────────────────────────┤
+│ .data          VMA=PSRAM, LMA=Flash          │  ← 已初始化全局量（含 heap, mainargs…）
+└─────────────────────────────────────────────┘
+
+PSRAM (仅 VMA，上电时内容为空，靠 SSBL 填充)
+┌─────────────────────────────────────────────┐
+│ .text → .data → .bss → _heap_start → …      │
+└─────────────────────────────────────────────┘
+
+SRAM
+┌──────────────┬──────────────────┬───────────┐
+│ .sram.loader │ .sram.text(可选) │ … 栈在末尾│
+│ 0x0f000000   │                  │ sp=末尾   │
+└──────────────┴──────────────────┴───────────┘
+
+
+| 类别 | 外设名称 | 功能描述 |
+| :--- | :--- | :--- |
+| **1. 存储与启动子系统 (Memory & Boot)** | Boot ROM (MROM) | 存放芯片出厂固化的引导代码（Bootloader），上电时最先执行。 |
+| | 片上 SRAM (SRAM / TCM) | 容量较小但速度极快，用于存放高频访问的代码、中断向量表或栈空间。 |
+| | 非易失性存储 (Flash / EEPROM) | 用于永久存放用户程序和配置数据。 |
+| | 外部内存控制器 (SDRAM / PSRAM / DDR) | 用于挂载大容量外部内存，满足操作系统和大型软件的运行需求。 |
+| **2. 核心控制与中断管理** | CLINT / PLIC | 负责处理处理器核本地的时钟/软件中断以及全局的外部设备中断仲介。 |
+| | 看门狗定时器 (Watchdog) | 用于系统死机时的硬件自动复位，保证工业环境下的高可靠性。 |
+| | 通用定时器 (Timers) | 提供硬件定时和计数功能。 |
+| **3. 通用及低速通信外设 (Low-speed IO)** | GPIO (通用输入输出) | 用于控制引脚高低电平、读取按键或驱动 LED。 |
+| | UART (通用异步收发器) | 用于串口调试和基础串行通信。 |
+| | SPI / I2C | 用于连接传感器、屏幕、EEPROM 等常见低速芯片。 |
+| **4. 高速及扩展接口 (High-speed & Interconnect)** | USB / 以太网 (Ethernet) | 工业级 SoC 常见的网络和主机通信接口。 |
+| | PCIe / ChipLink | 用于多芯片互联、FPGA 扩展或外挂高速设备（如 ysyxSoC 中的 ChipLink 机制）。 |
+| **5. 多媒体与图形外设 (可选)** | VGA / HDMI / 摄像头接口 (DSI/CSI) | 用于图形显示输出或视频采集。 |
+| | I2S / 音频接口 | 用于音频输入输出。 |
+
+
+`noinline`编译器特性是禁止内联，保留独立的函数调用栈，这便于gdb调试追踪，另一方面频繁调用的函数如果采用内联展开，会导致代码段膨胀。
+`used`编译器特性是强制保留，禁止编译器优化，无论是否被调用，强制保留在符号表中
+`section("section_name")`——自定义段名
+`packed`——结构体紧凑布局
+`always_inline`——和`noinline`相反，强制内联
+`weak`——将符号声明为弱符号，作用是为底层代码提供一个默认实现防止编链接器报错，允许用户通过强符号覆写。
+`noreturn`——告诉编译器这个函数永远不会返回，便于编译器优化

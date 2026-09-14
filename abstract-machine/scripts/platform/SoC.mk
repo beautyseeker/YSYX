@@ -8,6 +8,8 @@ AM_SRCS := riscv/SoC/start.S \
            riscv/SoC/uart.c \
            riscv/SoC/spi.c \
            riscv/SoC/mem-test.c \
+           riscv/SoC/vme.c \
+           riscv/SoC/mpe.c \
 
 CFLAGS    += -fdata-sections -ffunction-sections -O2
 LDSCRIPTS += $(AM_HOME)/scripts/SoC.ld

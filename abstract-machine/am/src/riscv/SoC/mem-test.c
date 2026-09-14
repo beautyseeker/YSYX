@@ -1,11 +1,10 @@
 #include <am.h>
 #include <klib.h>
 #include <klib-macros.h>
+extern char _heap_start[];
+#define MEM_TEST_TEXT __attribute__((section(".sram.text"), noinline))
 
-/* GCC 无 #pragma GCC section；用 attribute 指定输入段，链入 .sram.text */
-#define SRAM_TEXT __attribute__((section(".sram.text"), noinline))
-
-SRAM_TEXT
+MEM_TEST_TEXT
 void check(bool cond) {
   if (!cond) halt(1);
 }
@@ -15,9 +14,10 @@ void check(bool cond) {
  * data = addr & len_mask（讲义示意图，小端）。
  */
 
- SRAM_TEXT
+ MEM_TEST_TEXT
  static void test_8(uintptr_t lo, uintptr_t hi) {
    uintptr_t a;
+   // 内存自检阶段尽量使用外部调试接口而不要调用printf，此处TODO
    printf("byte write phase: [%p, %p)\n", (void*)lo, (void*)hi);
    for (a = lo; a < hi; a += 1) {
      *(volatile uint8_t *)a = (uint8_t)(a & 0xffu);
@@ -34,7 +34,7 @@ void check(bool cond) {
    printf("test_8 pass\n");
  }
 
-SRAM_TEXT
+MEM_TEST_TEXT
 static void test_16(uintptr_t lo, uintptr_t hi) {
   uintptr_t a;
   printf("halfword write phase: [%p, %p)\n", (void*)lo, (void*)hi);
@@ -53,7 +53,7 @@ static void test_16(uintptr_t lo, uintptr_t hi) {
   printf("test_16 pass\n");
 }
 
-SRAM_TEXT
+MEM_TEST_TEXT
 static void test_32(uintptr_t lo, uintptr_t hi) {
   uintptr_t a;
   printf("word write phase: [%p, %p)\n", (void*)lo, (void*)hi);
@@ -85,13 +85,14 @@ static void test_32(uintptr_t lo, uintptr_t hi) {
 //   }
 // }
 
-SRAM_TEXT
+MEM_TEST_TEXT
 bool psram_test() {
-  /* 先读入局部变量：测试会覆盖 .data 中的 heap */
-  uintptr_t lo = (uintptr_t)heap.start;
-  /* 暂时测试PSRAM的 4kB的空间，防止测试时间过长*/
-  uintptr_t hi = (lo + (1 << 12));
+  /* 只测堆区，避免踩掉 PSRAM 上的 .text/.data/.bss */
+  uintptr_t lo = (uintptr_t)_heap_start;
+  /* 暂时测 4KB，防止仿真过久 */
+  uintptr_t hi = lo + (1 << 12);
 
+  /* 地址高低位检查和8字节对齐检查 */
   check(lo < hi);
   check((lo & 7) == 0);
   check((hi & 7) == 0);
@@ -103,7 +104,7 @@ bool psram_test() {
   return true;
 }
 
-SRAM_TEXT
+MEM_TEST_TEXT
 bool sram_test(void) {
   return true;
 }
