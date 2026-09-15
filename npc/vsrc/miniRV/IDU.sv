@@ -42,7 +42,8 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
     ALU_a_src_sel: A_SRC_REG,
     ALU_b_src_sel: B_SRC_REG,
     mem_sign: MEM_SIGNED,
-    mem_size: MEM_WORD
+    mem_size: MEM_WORD,
+    EXCPT_code: EXC_NONE
 };
 
     logic [6:0] opcode;
@@ -197,6 +198,7 @@ localparam Ctrl_sig_t DEFAULT_CTRL_SIG = '{
                         if (inst == 32'h00000073) begin // ECALL
                             ctrl_sig.PC_sel = PC_TRAP_ENT;
                             ctrl_sig.jmp_en = ENABLE;
+                            ctrl_sig.EXCPT_code = EXC_ECALL_M;
                         end else if (inst == 32'h00100073) begin // EBREAK
                             $display("EBREAK encountered at time %t. Simulation will stop.", $time);
                             handle_sys_brk();

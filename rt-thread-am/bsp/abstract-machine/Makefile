@@ -8,7 +8,10 @@ NAME = rtthread
 SRCS = $(shell find src -name "*.c")
 CFLAGS += -DHAVE_CCONFIG_H -D__RTTHREAD__
 CFLAGS += -Wno-nonnull-compare
+# SoC：表项由 SoC.ld 收进 PSRAM；extra.ld INSERT 会误贴到 .sram.text 后进 8K SRAM
+ifneq ($(findstring SoC,$(ARCH)),SoC)
 LDFLAGS += -T extra.ld
+endif
 -include $(FILE_MK)
 -include $(AM_APPS_MK)
 include $(AM_HOME)/Makefile

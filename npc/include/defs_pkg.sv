@@ -77,7 +77,7 @@ package defs_pkg;
         EXC_M_TIMER_INT = 32'h80000007,
         EXC_S_EXT_INT = 32'h80000009,
         EXC_M_EXT_INT = 32'h8000000B
-    } except_cause;
+    } EXCPT_CAUSE;
 
     // 2. 最后定义引用了上述类型的结构体
     typedef struct packed {
@@ -92,6 +92,8 @@ package defs_pkg;
         ALU_b_src_sel_e   ALU_b_src_sel;
         mem_sign_e      mem_sign;
         mem_size_e      mem_size;
+
+        EXCPT_CAUSE     EXCPT_code;
     } Ctrl_sig_t; 
 
     typedef struct packed {

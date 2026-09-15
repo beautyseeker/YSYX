@@ -77,9 +77,6 @@ module CSRFile #(parameter XLEN=32)
             CSR_MVENDORID: csr_read_out = mvendorid;
             default:       csr_read_out = 'x; // 不应该发生
         endcase
-        // assert (csr_addr inside {CSR_MSTATUS, CSR_MTVEC, CSR_MEPC, CSR_MCAUSE, 
-        // CSR_MCYCLE, CSR_MCYCLEH, CSR_MVENDORID, CSR_MARCHID})
-        // else $error("Invalid CSR address: %0h at time %t", csr_addr, $time);
     end
 
     assign csr_bundle_out = '{
@@ -100,7 +97,7 @@ module CSRFile #(parameter XLEN=32)
         else begin
             if(ctrl_sig.PC_sel == PC_TRAP_ENT) begin : internal_trap
                 mepc <= PC_current; // 保存异常发生时的PC
-                // mcause <= EXCPT_code; // 保存异常原因
+                mcause <= ctrl_sig.EXCPT_code; // 保存异常原因
                 mstatus <= mstatus & ~32'h8; // 设置MIE位为0关闭中断，屏蔽后续非高优先级中断
                 // dump_all();
                 // $display("hard trap occurred at PC=0x%08h with cause=0x%08h\n", PC_current, EXCPT_code);
