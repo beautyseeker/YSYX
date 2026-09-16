@@ -4,6 +4,7 @@ MEMORY {
   MROM (rx) : ORIGIN = 0x20000000, LENGTH = 4K
   FLASH(rx) : ORIGIN = 0x30000000, LENGTH = 256M
   PSRAM(rw) : ORIGIN = 0x80000000, LENGTH = 4M
+  SDRAM(rw) : ORIGIN = 0xa0000000, LENGTH = 32M
 }
 
 ENTRY(_start)
@@ -18,12 +19,21 @@ SECTIONS {
     *(.text.boot.*)
   } > FLASH
 
-  /* SRAM 搬运器：在片上取指，把 .text/.data 从 Flash 搬到 PSRAM */
+  /* 把原本位于FLASH的DRAM自检和数据段搬运程序，转移到SRAM中执行，加速程序载入 */
   .sram.loader : {
     . = ALIGN(4);
     _sram_loader_start = .;
     *(.sram.loader)
     *(.sram.loader.*)
+      /* 整个 uart.c 编译单元 */
+    *uart*.o(.text .text.*)
+    *uart*.o(.rodata .rodata.* .srodata.*)
+    *uart*.o(.data .data.* .sdata.*)
+    *uart*.o(.bss .bss.* .sbss.*)
+    *mem-test*.o(.text .text.*)
+    *mem-test*.o(.rodata .rodata.* .srodata.*)
+    *mem-test*.o(.data .data.* .sdata.*)
+    *mem-test*.o(.bss .bss.* .sbss.*)
     . = ALIGN(4);
     _sram_loader_end = .;
   } > SRAM AT> FLASH
@@ -33,7 +43,7 @@ SECTIONS {
   .text : {
     . = ALIGN(4);
     _text_start = .;
-    *(EXCLUDE_FILE(*start*.o) .text*)
+    *(EXCLUDE_FILE(*start*.o *uart*.o *mem-test*.o) .text*)
     . = ALIGN(4);
     _etext = .;
   } > PSRAM AT> FLASH
@@ -41,21 +51,9 @@ SECTIONS {
 
   .rodata : {
     _rodata_start = .;
-    *(EXCLUDE_FILE(*mem-test*.o) .rodata*)
-    *(EXCLUDE_FILE(*mem-test*.o) .srodata*)
+    *(rodata*)
+    *(srodata*)
   } > FLASH
-
-  /* mem-test：VMA=SRAM，开机再拷入 */
-  .sram.text : {
-    . = ALIGN(4);
-    _sram_text_start = .;
-    *(.sram.text)
-    *mem-test*.o(.rodata*)
-    *mem-test*.o(.srodata*)
-    . = ALIGN(4);
-    _sram_text_end = .;
-  } > SRAM AT> FLASH
-  _sram_text_lma = LOADADDR(.sram.text);
 
   .data : {
     . = ALIGN(4);
@@ -111,11 +109,15 @@ SECTIONS {
   /* mem-test 要求 lo/hi 8 字节对齐 */
   . = ALIGN(8);
   _heap_start = .;
+  _psram_start = ORIGIN(PSRAM);
+  _sdram_start = ORIGIN(SDRAM);
 
   /* 栈指针初始地址为SRAM末尾，低地址方向压栈 */
   _stack_pointer = ORIGIN(SRAM) + LENGTH(SRAM);
   /* 栈区4k空间，超过则栈溢出 */
   _stack_top = _stack_pointer - 0x1000;
+  ASSERT(_sram_loader_end <= _stack_top,
+  "ERROR: .sram.loader overlaps stack")
 
   /DISCARD/ : { *(.note*) *(.eh_frame*) *(.comment) }
 }
