@@ -50,21 +50,11 @@ module sdram(
   reg [12:0] wr_row;
   reg [8:0]  wr_col;
 
-  // read pipeline: wait CL then emit BL beats
-  reg [2:0]  rd_wait;        // cycles left before first data
-  reg [1:0]  rd_nleft;       // data beats left to drive
+  reg [2:0]  rd_wait;
+  reg [1:0]  rd_nleft;
   reg [1:0]  rd_bank;
   reg [12:0] rd_row;
   reg [8:0]  rd_col;
-
-  function automatic [23:0] make_addr;
-    input [1:0]  bank;
-    input [12:0] row;
-    input [8:0]  col;
-    begin
-      make_addr = {bank, row, col};
-    end
-  endfunction
 
   integer i;
   initial begin
@@ -83,29 +73,33 @@ module sdram(
 
   always @(posedge clk) begin
     if (!cke) begin
-      dout_en <= 1'b0;
+      dout_en  <= 1'b0;
+      wr_burst <= 1'b0;
+      rd_wait  <= 3'd0;
+      rd_nleft <= 2'd0;
     end else begin
       // default: release bus (read path may override below)
       dout_en <= 1'b0;
 
       // ---------- write burst beat 1 (often cmd == NOP) ----------
       if (wr_burst) begin
-        if (!dqm[0]) mem[make_addr(wr_bank, wr_row, wr_col + 9'd1)][7:0]  <= dq[7:0];
-        if (!dqm[1]) mem[make_addr(wr_bank, wr_row, wr_col + 9'd1)][15:8] <= dq[15:8];
+        if (!dqm[0]) mem[{wr_bank, wr_row, wr_col + 9'd1}][7:0]  <= dq[7:0];
+        if (!dqm[1]) mem[{wr_bank, wr_row, wr_col + 9'd1}][15:8] <= dq[15:8];
         wr_burst <= 1'b0;
       end
 
       // ---------- read data output ----------
       if (rd_wait != 3'd0) begin
         if (rd_wait == 3'd1 && rd_nleft != 2'd0) begin
-          dout     <= mem[make_addr(rd_bank, rd_row, rd_col)];
+          dout     <= mem[{rd_bank, rd_row, rd_col}];
           dout_en  <= 1'b1;
           rd_col   <= rd_col + 9'd1;
           rd_nleft <= rd_nleft - 2'd1;
         end
         rd_wait <= rd_wait - 3'd1;
-      end else if (rd_nleft != 2'd0) begin
-        dout     <= mem[make_addr(rd_bank, rd_row, rd_col)];
+      end
+      else if (rd_nleft != 2'd0) begin
+        dout     <= mem[{rd_bank, rd_row, rd_col}];
         dout_en  <= 1'b1;
         rd_col   <= rd_col + 9'd1;
         rd_nleft <= rd_nleft - 2'd1;
@@ -140,8 +134,8 @@ module sdram(
 
         CMD_WRITE: begin
           if (bank_open[ba]) begin
-            if (!dqm[0]) mem[make_addr(ba, bank_row[ba], a[8:0])][7:0]  <= dq[7:0];
-            if (!dqm[1]) mem[make_addr(ba, bank_row[ba], a[8:0])][15:8] <= dq[15:8];
+            if (!dqm[0]) mem[{ba, bank_row[ba], a[8:0]}][7:0]  <= dq[7:0];
+            if (!dqm[1]) mem[{ba, bank_row[ba], a[8:0]}][15:8] <= dq[15:8];
             if (burst_len == 3'b001) begin
               wr_burst <= 1'b1;
               wr_bank  <= ba;
@@ -156,7 +150,7 @@ module sdram(
             rd_bank  <= ba;
             rd_row   <= bank_row[ba];
             rd_col   <= a[8:0];
-            rd_wait  <= cas_latency; // 3'b010 → 等待 2 拍后出第一笔
+            rd_wait  <= 3'd1;
             rd_nleft <= (burst_len == 3'b001) ? 2'd2 : 2'd1;
           end
         end

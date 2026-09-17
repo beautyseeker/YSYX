@@ -1481,11 +1481,14 @@ DRAM颗粒有如下8个操作：
 
 
 首先根据bank地址选中bank，然后将该bank的位线末端电压全部设置为中间态，这是读写刷新操作前都要进行的步骤。
-如果本次是激活操作，打开选中的RAS行，填入ROW Buffer
-如果本次是预充操作，给当前激活的RAS行断电，并将该bank的位线重新拉回中间电平，使这个bank回到可以任开一行的空闲态。
-如果本次是刷新操作，预充——激活——预充，该行的电容数据会被刷新固化。
-如果本次是读操作，选中激活第RAS行地址,该行上的全体电容数据都会反映在bank的位线末端电压，此时再根据CAS地址向外读出所需的数据位。
-如果本次是写操作，把要写入的数据位通过CAS地址写入到bank的位线末端电压，然后选中激活第RAS行，对应的数据位会被写入到电容。
+- 空操作-nop: 什么都不做
+- 结束突发-terminate: 源码未体现
+- 配置寄存器-mode：从地址总线读入CAS_latency和burst_len之类的参数
+- 自刷新-refresh：源码暂时忽略未实现
+- 激活-activate: 打开选中的RAS行，填入ROW Buffer
+- 关闭-precharge: 关闭当前选中的RAS行，并将该bank的位线电压复位成中间值。
+- 读取-read: 选中打开的RAS行，根据CAS地址从mem中读出数据到rd_row,等待CAS_latency个周期后将rd_row送至dout
+- 写入-write: 选中打开的RAS行，根据CAS地址/dq/dqm写入数据到mem
 
 DRAM单元：电容 + 管；WL=行，BL=列；BL 经 sense amp。
 
@@ -1523,3 +1526,30 @@ command/addr/ba     行打开表          数据通路
                         ▼
                   SDRAM 引脚
 
+
+# 9/17
+2. 硅后（真芯片 / 板级）— 主战场
+靠硬件计数器 + 采样，不是把每条总线日志打满。
+
+CPU PMU：ARM PMU / SPE、Intel PMU、RISC-V HPM/mhpmevent
+→ perf、Arm DS、Intel VTune、厂商自研 profiler
+→ 指令类占比、cache/TLB、流水线 stall 归因
+系统级 PMU / 总线探针：很多 SoC 在 AXI/CHI/NoC 上挂 monitor IP（读计数、字节数、延迟桶）
+→ 驱动或 firmware 周期性读寄存器
+跟踪单元：ETM/PT、总线 trace（容量有限，抓热点窗口）
+JTAG/调试器：Lauterbach Trace32 等做时间线关联
+流程大致是：
+
+定场景（boot / 某 benchmark / 某业务）
+  → 开 PMU / 总线 monitor
+  → 跑固定负载
+  → 导出计数与采样
+  → 归因（CPU 算力？缓存？DRAM？某 master 霸总线？）
+  → 改软件或下一代微架构
+3. 硅前（RTL / 仿真 / FPGA）— 和你现在更接近
+仿真器统计：Verilator/VCS + 自插桩（事务计数、latency 直方图）
+协议 VIP + 性能回调：AXI/APB monitor 自动记 outstanding、latency
+波形 + 脚本：你现在对 VCD 做的事，工业会做成 regression 报表
+FPGA 原型：插硬件性能计数器，接近真硅吞吐
+体系结构模拟器：gem5、厂商内部 model，先看趋势再投 RTL
+硅前可以「全知」，但慢；硅后快但只能看探针开了的窗口。

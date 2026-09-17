@@ -1,12 +1,12 @@
 [*]
 [*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
-[*] Tue Jul 28 06:17:02 2026
+[*] Thu Sep 17 08:20:08 2026
 [*]
 [dumpfile] "/home/passion/ysyx-workbench/npc/build/wave/ysyxSoCFull.vcd"
-[dumpfile_mtime] "Tue Jul 28 06:15:40 2026"
-[dumpfile_size] 1520028820
+[dumpfile_mtime] "Thu Sep 17 08:16:35 2026"
+[dumpfile_size] 1750015383
 [savefile] "/home/passion/ysyx-workbench/npc/config.gtkw"
-[timestart] 357
+[timestart] 5337935
 [size] 3776 2081
 [pos] -1 -1
 *-2.170997 113 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
@@ -14,13 +14,13 @@
 [treeopen] TOP.ysyxSoCFull.
 [treeopen] TOP.ysyxSoCFull.asic.
 [treeopen] TOP.ysyxSoCFull.asic.cpu.
-[treeopen] TOP.ysyxSoCFull.asic.cpu.cpu.
 [treeopen] TOP.ysyxSoCFull.asic.cpu.cpu.lsu.
+[treeopen] TOP.ysyxSoCFull.asic.lsdram_apb.
 [treeopen] TOP.ysyxSoCFull.asic.lspi.
 [sst_width] 297
 [signals_width] 460
 [sst_expanded] 1
-[sst_vpaned_height] 561
+[sst_vpaned_height] 546
 @28
 TOP.ysyxSoCFull.asic.cpu.cpu.clock
 TOP.ysyxSoCFull.asic.cpu.cpu.reset
@@ -88,10 +88,10 @@ TOP.ysyxSoCFull.asic.cpu.cpu.ifu_bus.Rvalid
 -
 @22
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[0][31:0]
-TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[1][31:0]
 @23
-TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[2][31:0]
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[1][31:0]
 @22
+TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[2][31:0]
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[10][31:0]
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[11][31:0]
 TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[12][31:0]
@@ -101,65 +101,53 @@ TOP.ysyxSoCFull.asic.cpu.cpu.regfile.gpr[15][31:0]
 @200
 -
 -
+-
 @22
-TOP.ysyxSoCFull.asic.lspi.mspi.flash_off[23:0]
+TOP.ysyxSoCFull.sdram.a[12:0]
 @28
-TOP.ysyxSoCFull.asic.lspi.mspi.flash_rd_req
-TOP.ysyxSoCFull.asic.lspi.mspi.flash_wr_req
+TOP.ysyxSoCFull.sdram.ba[1:0]
 @22
-TOP.ysyxSoCFull.asic.lspi.mspi.in_paddr[31:0]
+#{TOP.ysyxSoCFull.sdram.bank_open[0:3]} TOP.ysyxSoCFull.sdram.bank_open[0] TOP.ysyxSoCFull.sdram.bank_open[1] TOP.ysyxSoCFull.sdram.bank_open[2] TOP.ysyxSoCFull.sdram.bank_open[3]
+TOP.ysyxSoCFull.sdram.bank_row[0][12:0]
+TOP.ysyxSoCFull.sdram.bank_row[1][12:0]
+TOP.ysyxSoCFull.sdram.bank_row[2][12:0]
+TOP.ysyxSoCFull.sdram.bank_row[3][12:0]
 @28
-TOP.ysyxSoCFull.asic.lspi.mspi.in_penable
-TOP.ysyxSoCFull.asic.lspi.mspi.in_pprot[2:0]
+TOP.ysyxSoCFull.sdram.burst_len[2:0]
+TOP.ysyxSoCFull.sdram.cas
+TOP.ysyxSoCFull.sdram.cas_latency[2:0]
+TOP.ysyxSoCFull.sdram.cke
+TOP.ysyxSoCFull.sdram.clk
 @22
-TOP.ysyxSoCFull.asic.lspi.mspi.in_prdata[31:0]
+TOP.ysyxSoCFull.sdram.cmd[3:0]
 @28
-TOP.ysyxSoCFull.asic.lspi.mspi.in_pready
-TOP.ysyxSoCFull.asic.lspi.mspi.in_psel
-TOP.ysyxSoCFull.asic.lspi.mspi.in_pslverr
+TOP.ysyxSoCFull.sdram.cs
 @22
-TOP.ysyxSoCFull.asic.lspi.mspi.in_pstrb[3:0]
-TOP.ysyxSoCFull.asic.lspi.mspi.in_pwdata[31:0]
+TOP.ysyxSoCFull.sdram.dout[15:0]
 @28
-TOP.ysyxSoCFull.asic.lspi.mspi.in_pwrite
-TOP.ysyxSoCFull.asic.lspi.mspi.is_flash
-TOP.ysyxSoCFull.asic.lspi.mspi.reset
-TOP.ysyxSoCFull.asic.lspi.mspi.spi_irq_out
-TOP.ysyxSoCFull.asic.lspi.mspi.spi_miso
-TOP.ysyxSoCFull.asic.lspi.mspi.spi_mosi
-TOP.ysyxSoCFull.asic.lspi.mspi.spi_sck
+TOP.ysyxSoCFull.sdram.dout_en
 @22
-TOP.ysyxSoCFull.asic.lspi.mspi.spi_ss[7:0]
-TOP.ysyxSoCFull.asic.lspi.mspi.spi_ss_num[31:0]
-TOP.ysyxSoCFull.asic.lspi.mspi.state[3:0]
-TOP.ysyxSoCFull.asic.lspi.mspi.state_n[3:0]
+TOP.ysyxSoCFull.sdram.dq[15:0]
 @28
-TOP.ysyxSoCFull.asic.lspi.mspi.wb_ack
+TOP.ysyxSoCFull.sdram.dqm[1:0]
 @22
-TOP.ysyxSoCFull.asic.lspi.mspi.wb_adr[4:0]
+TOP.ysyxSoCFull.sdram.i[31:0]
 @28
-TOP.ysyxSoCFull.asic.lspi.mspi.wb_cyc
+TOP.ysyxSoCFull.sdram.ras
+TOP.ysyxSoCFull.sdram.rd_bank[1:0]
 @22
-TOP.ysyxSoCFull.asic.lspi.mspi.wb_dat_i[31:0]
-TOP.ysyxSoCFull.asic.lspi.mspi.wb_dat_o[31:0]
+TOP.ysyxSoCFull.sdram.rd_col[8:0]
 @28
-TOP.ysyxSoCFull.asic.lspi.mspi.wb_err
+TOP.ysyxSoCFull.sdram.rd_nleft[1:0]
 @22
-TOP.ysyxSoCFull.asic.lspi.mspi.wb_sel[3:0]
+TOP.ysyxSoCFull.sdram.rd_row[12:0]
 @28
-TOP.ysyxSoCFull.asic.lspi.mspi.wb_stb
-TOP.ysyxSoCFull.asic.lspi.mspi.wb_we
-@200
--
--
--
--
--
--
--
--
--
--
--
+TOP.ysyxSoCFull.sdram.rd_wait[2:0]
+TOP.ysyxSoCFull.sdram.we
+TOP.ysyxSoCFull.sdram.wr_bank[1:0]
+TOP.ysyxSoCFull.sdram.wr_burst
+@22
+TOP.ysyxSoCFull.sdram.wr_col[8:0]
+TOP.ysyxSoCFull.sdram.wr_row[12:0]
 [pattern_trace] 1
 [pattern_trace] 0

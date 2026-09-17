@@ -46,7 +46,7 @@ SECTIONS {
     *(EXCLUDE_FILE(*start*.o *uart*.o *mem-test*.o) .text*)
     . = ALIGN(4);
     _etext = .;
-  } > PSRAM AT> FLASH
+  } > SDRAM AT> FLASH
   _text_lma = LOADADDR(.text);
 
   .rodata : {
@@ -85,7 +85,7 @@ SECTIONS {
 
     *(.data*)
     *(.sdata*)
-  } > PSRAM AT> FLASH
+  } > SDRAM AT> FLASH
 
   _edata = .;
   _data_LMA_start = LOADADDR(.data);
@@ -103,7 +103,7 @@ SECTIONS {
     *(.bss*)
     *(.sbss*)
     *(.scommon)
-  } > PSRAM  /* .bss段地址在SRAM,由于这个段本身就是待程序初始化，无需LMA获得初值 */
+  } > SDRAM  /* .bss段地址在SRAM,由于这个段本身就是待程序初始化，无需LMA获得初值 */
   _ebss = .;
 
   /* mem-test 要求 lo/hi 8 字节对齐 */
@@ -111,6 +111,7 @@ SECTIONS {
   _heap_start = .;
   _psram_start = ORIGIN(PSRAM);
   _sdram_start = ORIGIN(SDRAM);
+  _heap_end = _sdram_start + LENGTH(SDRAM);
 
   /* 栈指针初始地址为SRAM末尾，低地址方向压栈 */
   _stack_pointer = ORIGIN(SRAM) + LENGTH(SRAM);

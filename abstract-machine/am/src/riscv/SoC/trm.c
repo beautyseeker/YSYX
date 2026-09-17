@@ -11,7 +11,7 @@ static const char mainargs[MAINARGS_MAX_LEN] = TOSTRING(MAINARGS_PLACEHOLDER); /
 extern char _data_start[], _edata[], _data_LMA_start[];
 extern char _bss[], _ebss[];
 extern char _stack_top[], _stack_pointer[];
-extern char _heap_start[], _etext[], _text_start[], _text_lma[];
+extern char _heap_start[], _heap_end[], _etext[], _text_start[], _text_lma[];
 extern char _sram_loader_start[], _sram_loader_end[], _sram_loader_lma[];
 
 void uart_init(void);
@@ -20,7 +20,7 @@ void _sram_loader(void);
 
 extern bool dram_test();
 
-Area heap = RANGE(&_heap_start, PSRAM_BASE + PSRAM_SIZE);
+Area heap = RANGE(&_heap_start, &_heap_end);
 
 static void print_vendor_info();
 

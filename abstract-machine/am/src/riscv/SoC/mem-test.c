@@ -48,7 +48,7 @@ static bool region_test(const char *tag, uintptr_t lo, uintptr_t hi) {
   puthex(lo);
   putstr(", ");
   puthex(hi);
-  putstr("] started\n");
+  putstr("] testing...\n");
 
   fail_if(lo >= hi, "FAIL: lo >= hi\n");
   fail_if((lo & 7) != 0, "FAIL: lo is not 8-byte aligned\n");
@@ -68,10 +68,10 @@ bool psram_test(void) {
   return region_test("PSRAM", lo, lo + (1 << 12));
 }
 
-// bool sdram_test(void) {
-//   uintptr_t lo = (uintptr_t)_sdram_start;
-//   return region_test("SDRAM", lo, lo + (1 << 12));
-// }
+bool sdram_test(void) {
+  uintptr_t lo = (uintptr_t)_sdram_start;
+  return region_test("SDRAM", lo, lo + (1 << 12));
+}
 
 bool sram_test(void) {
   return true;
@@ -79,5 +79,5 @@ bool sram_test(void) {
 
 void dram_test(void) {
   psram_test();
-  // sdram_test();
+  sdram_test();
 }
