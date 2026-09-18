@@ -1,12 +1,10 @@
 `timescale 1ns / 1ps
 
-// MT48LC16M16A2 behavioral model (ysyx SoC)
-// 4 bank x 8192 row x 512 col x 16bit
-// Mode: CL / BL from LOAD_MODE (controller uses CL=2, BL=2)
-// PRECHARGE / REFRESH: close-row bookkeeping / NOP
-// Not intended for FPGA synthesis — simulation particle only.
+// MT48LC16M16A2 behavioral model — single 16-bit particle (ysyx SoC)
+// 4 bank x 8192 row x 512 col x 16bit = 32MB
+// Controller uses CL=2, BL=1 after bit-width expansion
 
-module sdram(
+module sdram_chip(
   input        clk,
   input        cke,
   input        cs,
@@ -19,15 +17,12 @@ module sdram(
   inout [15:0] dq
 );
 
-  // ---------------- memory array (halfword) ----------------
   reg [15:0] mem [0:(1<<24)-1];
 
-  // ---------------- dq drive ----------------
   reg        dout_en;
   reg [15:0] dout;
   assign dq = dout_en ? dout : 16'hzzzz;
 
-  // ---------------- commands {cs,ras,cas,we} ----------------
   wire [3:0] cmd = {cs, ras, cas, we};
   localparam CMD_NOP       = 4'b0111;
   localparam CMD_ACTIVE    = 4'b0011;
@@ -37,18 +32,11 @@ module sdram(
   localparam CMD_REFRESH   = 4'b0001;
   localparam CMD_LOAD_MODE = 4'b0000;
 
-  // ---------------- mode / bank / burst ----------------
-  reg [2:0] cas_latency; // a[6:4], expect 3'b010
-  reg [2:0] burst_len;   // a[2:0], expect 3'b001 → length 2
+  reg [2:0] cas_latency;
+  reg [2:0] burst_len;
 
   reg        bank_open [0:3];
   reg [12:0] bank_row  [0:3];
-
-  // write burst (2nd beat usually arrives with NOP)
-  reg        wr_burst;
-  reg [1:0]  wr_bank;
-  reg [12:0] wr_row;
-  reg [8:0]  wr_col;
 
   reg [2:0]  rd_wait;
   reg [1:0]  rd_nleft;
@@ -61,8 +49,7 @@ module sdram(
     dout_en     = 1'b0;
     dout        = 16'h0;
     cas_latency = 3'b010;
-    burst_len   = 3'b001;
-    wr_burst    = 1'b0;
+    burst_len   = 3'b000;
     rd_wait     = 3'd0;
     rd_nleft    = 2'd0;
     for (i = 0; i < 4; i = i + 1) begin
@@ -74,21 +61,11 @@ module sdram(
   always @(posedge clk) begin
     if (!cke) begin
       dout_en  <= 1'b0;
-      wr_burst <= 1'b0;
       rd_wait  <= 3'd0;
       rd_nleft <= 2'd0;
     end else begin
-      // default: release bus (read path may override below)
       dout_en <= 1'b0;
 
-      // ---------- write burst beat 1 (often cmd == NOP) ----------
-      if (wr_burst) begin
-        if (!dqm[0]) mem[{wr_bank, wr_row, wr_col + 9'd1}][7:0]  <= dq[7:0];
-        if (!dqm[1]) mem[{wr_bank, wr_row, wr_col + 9'd1}][15:8] <= dq[15:8];
-        wr_burst <= 1'b0;
-      end
-
-      // ---------- read data output ----------
       if (rd_wait != 3'd0) begin
         if (rd_wait == 3'd1 && rd_nleft != 2'd0) begin
           dout     <= mem[{rd_bank, rd_row, rd_col}];
@@ -105,7 +82,6 @@ module sdram(
         rd_nleft <= rd_nleft - 2'd1;
       end
 
-      // ---------- command decode ----------
       case (cmd)
         CMD_LOAD_MODE: begin
           burst_len   <= a[2:0];
@@ -129,19 +105,12 @@ module sdram(
         end
 
         CMD_REFRESH: begin
-          // nop for this lab
         end
 
         CMD_WRITE: begin
           if (bank_open[ba]) begin
             if (!dqm[0]) mem[{ba, bank_row[ba], a[8:0]}][7:0]  <= dq[7:0];
             if (!dqm[1]) mem[{ba, bank_row[ba], a[8:0]}][15:8] <= dq[15:8];
-            if (burst_len == 3'b001) begin
-              wr_burst <= 1'b1;
-              wr_bank  <= ba;
-              wr_row   <= bank_row[ba];
-              wr_col   <= a[8:0];
-            end
           end
         end
 
@@ -151,7 +120,8 @@ module sdram(
             rd_row   <= bank_row[ba];
             rd_col   <= a[8:0];
             rd_wait  <= 3'd1;
-            rd_nleft <= (burst_len == 3'b001) ? 2'd2 : 2'd1;
+            // BL=1 → one beat; BL=2 kept for compatibility
+            rd_nleft <= (burst_len == 3'b000) ? 2'd1 : 2'd2;
           end
         end
 
@@ -159,5 +129,48 @@ module sdram(
       endcase
     end
   end
+
+endmodule
+
+// 4-chip DIMM: two bit-expanded pairs, then word-expanded via cs[1:0]
+// Pair0 (cs[0]): chip0=dq[15:0],  chip1=dq[31:16]
+// Pair1 (cs[1]): chip2=dq[15:0],  chip3=dq[31:16]
+module sdram(
+  input        clk,
+  input        cke,
+  input  [1:0] cs,
+  input        ras,
+  input        cas,
+  input        we,
+  input [12:0] a,
+  input  [1:0] ba,
+  input  [3:0] dqm,
+  inout [31:0] dq
+);
+
+  sdram_chip u0_l (
+    .clk(clk), .cke(cke), .cs(cs[0]),
+    .ras(ras), .cas(cas), .we(we),
+    .a(a), .ba(ba),
+    .dqm(dqm[1:0]), .dq(dq[15:0])
+  );
+  sdram_chip u0_h (
+    .clk(clk), .cke(cke), .cs(cs[0]),
+    .ras(ras), .cas(cas), .we(we),
+    .a(a), .ba(ba),
+    .dqm(dqm[3:2]), .dq(dq[31:16])
+  );
+  sdram_chip u1_l (
+    .clk(clk), .cke(cke), .cs(cs[1]),
+    .ras(ras), .cas(cas), .we(we),
+    .a(a), .ba(ba),
+    .dqm(dqm[1:0]), .dq(dq[15:0])
+  );
+  sdram_chip u1_h (
+    .clk(clk), .cke(cke), .cs(cs[1]),
+    .ras(ras), .cas(cas), .we(we),
+    .a(a), .ba(ba),
+    .dqm(dqm[3:2]), .dq(dq[31:16])
+  );
 
 endmodule

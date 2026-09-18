@@ -42,7 +42,7 @@ module sdram_axi_core
     ,input  [  7:0]  inport_len_i
     ,input  [ 31:0]  inport_addr_i
     ,input  [ 31:0]  inport_write_data_i
-    ,input  [ 15:0]  sdram_data_input_i
+    ,input  [ 31:0]  sdram_data_input_i
 
     // Outputs
     ,output          inport_accept_o
@@ -51,14 +51,14 @@ module sdram_axi_core
     ,output [ 31:0]  inport_read_data_o
     ,output          sdram_clk_o
     ,output          sdram_cke_o
-    ,output          sdram_cs_o
+    ,output [  1:0]  sdram_cs_o
     ,output          sdram_ras_o
     ,output          sdram_cas_o
     ,output          sdram_we_o
-    ,output [  1:0]  sdram_dqm_o
-    ,output [ 12:0]  sdram_addr_o
-    ,output [  1:0]  sdram_ba_o
-    ,output [ 15:0]  sdram_data_output_o
+    ,output [ SDRAM_DQM_W-1:0]  sdram_dqm_o
+    ,output [ SDRAM_ROW_W-1:0]  sdram_addr_o
+    ,output [ SDRAM_BANK_W-1:0]  sdram_ba_o
+    ,output [ SDRAM_DATA_W-1:0]  sdram_data_output_o
     ,output          sdram_data_out_en_o
 );
 
@@ -75,8 +75,9 @@ parameter SDRAM_READ_LATENCY     = 2;
 //-----------------------------------------------------------------
 // Defines / Local params
 //-----------------------------------------------------------------
+localparam SDRAM_DATA_W          = 32;
 localparam SDRAM_BANK_W          = 2;
-localparam SDRAM_DQM_W           = 2;
+localparam SDRAM_DQM_W           = SDRAM_DATA_W / 8;
 localparam SDRAM_BANKS           = 2 ** SDRAM_BANK_W;
 localparam SDRAM_ROW_W           = SDRAM_ADDR_W - SDRAM_COL_W - SDRAM_BANK_W;
 localparam SDRAM_REFRESH_CNT     = 2 ** SDRAM_ROW_W;
@@ -93,8 +94,8 @@ localparam CMD_PRECHARGE     = 4'b0010;
 localparam CMD_REFRESH       = 4'b0001;
 localparam CMD_LOAD_MODE     = 4'b0000;
 
-// Mode: Burst Length = 4 bytes, CAS=2
-localparam MODE_REG          = {3'b000,1'b0,2'b00,3'b010,1'b0,3'b001};
+// Mode: 字扩展后无突发，突发长度为1, CAS=2
+localparam MODE_REG          = {3'b000,1'b0,2'b00,3'b010,1'b0,3'b000};
 
 // SM states
 localparam STATE_W           = 4;
@@ -112,8 +113,6 @@ localparam STATE_REFRESH     = 4'd9;
 localparam AUTO_PRECHARGE    = 10;
 localparam ALL_BANKS         = 10;
 
-localparam SDRAM_DATA_W      = 16;
-
 localparam CYCLE_TIME_NS     = 1000 / SDRAM_MHZ;
 
 // SDRAM timing
@@ -122,7 +121,9 @@ localparam SDRAM_TRP_CYCLES  = (20 + (CYCLE_TIME_NS-1)) / CYCLE_TIME_NS;
 localparam SDRAM_TRFC_CYCLES = (60 + (CYCLE_TIME_NS-1)) / CYCLE_TIME_NS;
 
 //-----------------------------------------------------------------
-// External Interface
+// External Interface 
+// 外部输入的控制与数据信号（以 inport_ 开头）
+// 规范化地转换为模块内部使用的信号（以 ram_ 开头），并生成了统一的访存请求信号
 //-----------------------------------------------------------------
 wire [ 31:0]  ram_addr_w       = inport_addr_i;
 wire [  3:0]  ram_wr_w         = inport_wr_i;
@@ -161,14 +162,14 @@ reg [SDRAM_BANK_W-1:0] bank_q;
 
 // Buffer half word during read and write commands
 reg [SDRAM_DATA_W-1:0] data_buffer_q;
-reg [SDRAM_DQM_W-1:0]  dqm_buffer_q;
 
 wire [SDRAM_DATA_W-1:0] sdram_data_in_w;
 
 reg                    refresh_q;
 
-reg [SDRAM_BANKS-1:0]  row_open_q;
-reg [SDRAM_ROW_W-1:0]  active_row_q[0:SDRAM_BANKS-1];
+// Per word-expanded pair (cs) open-row tracking
+reg [SDRAM_BANKS-1:0]  row_open_q [0:1];
+reg [SDRAM_ROW_W-1:0]  active_row_q [0:1][0:SDRAM_BANKS-1];
 
 reg  [STATE_W-1:0]     state_q;
 reg  [STATE_W-1:0]     next_state_r;
@@ -176,10 +177,15 @@ reg  [STATE_W-1:0]     target_state_r;
 reg  [STATE_W-1:0]     target_state_q;
 reg  [STATE_W-1:0]     delay_state_q;
 
-// Address bits
-wire [SDRAM_ROW_W-1:0]  addr_col_w  = {{(SDRAM_ROW_W-SDRAM_COL_W){1'b0}}, ram_addr_w[SDRAM_COL_W:2], 1'b0};
-wire [SDRAM_ROW_W-1:0]  addr_row_w  = ram_addr_w[SDRAM_ADDR_W:SDRAM_COL_W+2+1];
-wire [SDRAM_BANK_W-1:0] addr_bank_w = ram_addr_w[SDRAM_COL_W+2:SDRAM_COL_W+2-1];
+// Address bits (32-bit word, BL=1); [26] selects word-expanded pair
+wire                    addr_cs_w   = ram_addr_w[26];
+wire [SDRAM_ROW_W-1:0]  addr_col_w  = {{(SDRAM_ROW_W-SDRAM_COL_W){1'b0}}, ram_addr_w[SDRAM_COL_W+1:2]};
+wire [SDRAM_ROW_W-1:0]  addr_row_w  = ram_addr_w[SDRAM_ADDR_W+1:SDRAM_COL_W+2+2];
+wire [SDRAM_BANK_W-1:0] addr_bank_w = ram_addr_w[SDRAM_COL_W+3:SDRAM_COL_W+2];
+wire                    row_hit_w   = row_open_q[addr_cs_w][addr_bank_w] &&
+                                      (addr_row_w == active_row_q[addr_cs_w][addr_bank_w]);
+wire                    bank_open_w = row_open_q[addr_cs_w][addr_bank_w];
+wire                    any_open_w  = |row_open_q[0] | |row_open_q[1];
 
 //-----------------------------------------------------------------
 // SDRAM State Machine
@@ -209,7 +215,7 @@ begin
         if (refresh_q)
         begin
             // Close open rows, then refresh
-            if (|row_open_q)
+            if (any_open_w)
                 next_state_r = STATE_PRECHARGE;
             else
                 next_state_r = STATE_REFRESH;
@@ -220,7 +226,7 @@ begin
         else if (ram_req_w)
         begin
             // Open row hit
-            if (row_open_q[addr_bank_w] && addr_row_w == active_row_q[addr_bank_w])
+            if (row_hit_w)
             begin
                 if (!ram_rd_w)
                     next_state_r = STATE_WRITE0;
@@ -228,7 +234,7 @@ begin
                     next_state_r = STATE_READ;
             end
             // Row miss, close row, open new row
-            else if (row_open_q[addr_bank_w])
+            else if (bank_open_w)
             begin
                 next_state_r   = STATE_PRECHARGE;
 
@@ -275,7 +281,7 @@ begin
         if (!refresh_q && ram_req_w && ram_rd_w)
         begin
             // Open row hit
-            if (row_open_q[addr_bank_w] && addr_row_w == active_row_q[addr_bank_w])
+            if (row_hit_w)
                 next_state_r = STATE_READ;
         end
     end
@@ -284,23 +290,17 @@ begin
     //-----------------------------------------
     STATE_WRITE0 :
     begin
-        next_state_r = STATE_WRITE1;
-    end
-    //-----------------------------------------
-    // STATE_WRITE1
-    //-----------------------------------------
-    STATE_WRITE1 :
-    begin
         next_state_r = STATE_IDLE;
 
         // Another pending write request (with no refresh pending)
         if (!refresh_q && ram_req_w && (ram_wr_w != 4'b0))
         begin
             // Open row hit
-            if (row_open_q[addr_bank_w] && addr_row_w == active_row_q[addr_bank_w])
+            if (row_hit_w)
                 next_state_r = STATE_WRITE0;
         end
     end
+
     //-----------------------------------------
     // STATE_PRECHARGE
     //-----------------------------------------
@@ -364,7 +364,7 @@ begin
         if (!refresh_q && ram_req_w && ram_rd_w)
         begin
             // Open row hit
-            if (row_open_q[addr_bank_w] && addr_row_w == active_row_q[addr_bank_w])
+            if (row_hit_w)
                 delay_r = 4'd0;
         end
     end
@@ -478,23 +478,26 @@ else
 // Command Output
 //-----------------------------------------------------------------
 integer idx;
+integer cs_i;
+reg [1:0] cs_q;
 
 always @ (posedge clk_i or posedge rst_i)
 if (rst_i)
 begin
     command_q       <= CMD_NOP;
-    data_q          <= 16'b0;
+    data_q          <= {SDRAM_DATA_W{1'b0}};
     addr_q          <= {SDRAM_ROW_W{1'b0}};
     bank_q          <= {SDRAM_BANK_W{1'b0}};
     cke_q           <= 1'b0;
     dqm_q           <= {SDRAM_DQM_W{1'b0}};
     data_rd_en_q    <= 1'b1;
-    dqm_buffer_q    <= {SDRAM_DQM_W{1'b0}};
+    cs_q            <= 2'b11;
 
-    for (idx=0;idx<SDRAM_BANKS;idx=idx+1)
-        active_row_q[idx] <= {SDRAM_ROW_W{1'b0}};
-
-    row_open_q      <= {SDRAM_BANKS{1'b0}};
+    for (cs_i=0;cs_i<2;cs_i=cs_i+1) begin
+        row_open_q[cs_i] <= {SDRAM_BANKS{1'b0}};
+        for (idx=0;idx<SDRAM_BANKS;idx=idx+1)
+            active_row_q[cs_i][idx] <= {SDRAM_ROW_W{1'b0}};
+    end
 end
 else
 begin
@@ -509,6 +512,7 @@ begin
         addr_q       <= {SDRAM_ROW_W{1'b0}};
         bank_q       <= {SDRAM_BANK_W{1'b0}};
         data_rd_en_q <= 1'b1;
+        cs_q         <= 2'b11;
     end
     //-----------------------------------------
     // STATE_INIT
@@ -520,24 +524,28 @@ begin
         begin
             // Assert CKE after 100uS
             cke_q <= 1'b1;
+            cs_q  <= 2'b11;
         end
         // PRECHARGE
         else if (refresh_timer_q == 40)
         begin
-            // Precharge all banks
+            // Precharge all banks on both pairs
             command_q           <= CMD_PRECHARGE;
             addr_q[ALL_BANKS]   <= 1'b1;
+            cs_q                <= 2'b00;
         end
         // 2 x REFRESH (with at least tREF wait)
         else if (refresh_timer_q == 20 || refresh_timer_q == 30)
         begin
             command_q <= CMD_REFRESH;
+            cs_q      <= 2'b00;
         end
         // Load mode register
         else if (refresh_timer_q == 10)
         begin
             command_q <= CMD_LOAD_MODE;
             addr_q    <= MODE_REG;
+            cs_q      <= 2'b00;
         end
         // Other cycles during init - just NOP
         else
@@ -545,6 +553,7 @@ begin
             command_q   <= CMD_NOP;
             addr_q      <= {SDRAM_ROW_W{1'b0}};
             bank_q      <= {SDRAM_BANK_W{1'b0}};
+            cs_q        <= 2'b11;
         end
     end
     //-----------------------------------------
@@ -556,31 +565,34 @@ begin
         command_q     <= CMD_ACTIVE;
         addr_q        <= addr_row_w;
         bank_q        <= addr_bank_w;
+        cs_q          <= addr_cs_w ? 2'b01 : 2'b10;
 
-        active_row_q[addr_bank_w]  <= addr_row_w;
-        row_open_q[addr_bank_w]    <= 1'b1;
+        active_row_q[addr_cs_w][addr_bank_w]  <= addr_row_w;
+        row_open_q[addr_cs_w][addr_bank_w]    <= 1'b1;
     end
     //-----------------------------------------
     // STATE_PRECHARGE
     //-----------------------------------------
     STATE_PRECHARGE :
     begin
-        // Precharge due to refresh, close all banks
+        // Precharge due to refresh, close all banks on both pairs
         if (target_state_r == STATE_REFRESH)
         begin
-            // Precharge all banks
             command_q           <= CMD_PRECHARGE;
             addr_q[ALL_BANKS]   <= 1'b1;
-            row_open_q          <= {SDRAM_BANKS{1'b0}};
+            cs_q                <= 2'b00;
+            row_open_q[0]       <= {SDRAM_BANKS{1'b0}};
+            row_open_q[1]       <= {SDRAM_BANKS{1'b0}};
         end
         else
         begin
-            // Precharge specific banks
+            // Precharge specific bank on selected pair
             command_q           <= CMD_PRECHARGE;
             addr_q[ALL_BANKS]   <= 1'b0;
             bank_q              <= addr_bank_w;
+            cs_q                <= addr_cs_w ? 2'b01 : 2'b10;
 
-            row_open_q[addr_bank_w] <= 1'b0;
+            row_open_q[addr_cs_w][addr_bank_w] <= 1'b0;
         end
     end
     //-----------------------------------------
@@ -588,10 +600,11 @@ begin
     //-----------------------------------------
     STATE_REFRESH :
     begin
-        // Auto refresh
+        // Auto refresh both pairs
         command_q   <= CMD_REFRESH;
         addr_q      <= {SDRAM_ROW_W{1'b0}};
         bank_q      <= {SDRAM_BANK_W{1'b0}};
+        cs_q        <= 2'b00;
     end
     //-----------------------------------------
     // STATE_READ
@@ -601,6 +614,7 @@ begin
         command_q   <= CMD_READ;
         addr_q      <= addr_col_w;
         bank_q      <= addr_bank_w;
+        cs_q        <= addr_cs_w ? 2'b01 : 2'b10;
 
         // Disable auto precharge (auto close of row)
         addr_q[AUTO_PRECHARGE]  <= 1'b0;
@@ -616,32 +630,16 @@ begin
         command_q       <= CMD_WRITE;
         addr_q          <= addr_col_w;
         bank_q          <= addr_bank_w;
-        data_q          <= ram_write_data_w[15:0];
+        data_q          <= ram_write_data_w;
+        cs_q            <= addr_cs_w ? 2'b01 : 2'b10;
 
         // Disable auto precharge (auto close of row)
         addr_q[AUTO_PRECHARGE]  <= 1'b0;
 
         // Write mask
-        dqm_q           <= ~ram_wr_w[1:0];
-        dqm_buffer_q    <= ~ram_wr_w[3:2];
+        dqm_q           <= ~ram_wr_w[SDRAM_DQM_W-1:0];
 
         data_rd_en_q    <= 1'b0;
-    end
-    //-----------------------------------------
-    // STATE_WRITE1
-    //-----------------------------------------
-    STATE_WRITE1 :
-    begin
-        // Burst continuation
-        command_q   <= CMD_NOP;
-
-        data_q      <= data_buffer_q;
-
-        // Disable auto precharge (auto close of row)
-        addr_q[AUTO_PRECHARGE]  <= 1'b0;
-
-        // Write mask
-        dqm_q       <= dqm_buffer_q;
     end
     endcase
 end
@@ -661,18 +659,15 @@ else
 // Data Buffer
 //-----------------------------------------------------------------
 
-// Buffer upper 16-bits of write data so write command can be accepted
-// in WRITE0. Also buffer lower 16-bits of read data.
+// Buffer read data when sample is valid; ack_q is 1 cycle later.
 always @ (posedge clk_i or posedge rst_i)
 if (rst_i)
-    data_buffer_q <= 16'b0;
-else if (state_q == STATE_WRITE0)
-    data_buffer_q <= ram_write_data_w[31:16];
+    data_buffer_q <= {SDRAM_DATA_W{1'b0}};
 else if (rd_q[SDRAM_READ_LATENCY+1])
     data_buffer_q <= sample_data_q;
 
 // Read data output
-assign ram_read_data_w = {sample_data_q, data_buffer_q};
+assign ram_read_data_w = data_buffer_q;
 
 //-----------------------------------------------------------------
 // ACK
@@ -684,7 +679,7 @@ if (rst_i)
     ack_q   <= 1'b0;
 else
 begin
-    if (state_q == STATE_WRITE1)
+    if (state_q == STATE_WRITE0)
         ack_q <= 1'b1;
     else if (rd_q[SDRAM_READ_LATENCY+1])
         ack_q <= 1'b1;
@@ -706,7 +701,7 @@ assign sdram_data_output_o   =  data_q;
 assign sdram_data_in_w       = sdram_data_input_i;
 
 assign sdram_cke_o  = cke_q;
-assign sdram_cs_o   = command_q[3];
+assign sdram_cs_o   = cs_q;
 assign sdram_ras_o  = command_q[2];
 assign sdram_cas_o  = command_q[1];
 assign sdram_we_o   = command_q[0];

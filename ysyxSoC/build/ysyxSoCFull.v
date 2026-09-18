@@ -2042,14 +2042,14 @@ module APBSDRAM(	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:87:9
   output [31:0] auto_in_prdata,	// home/passion/YSYX/ysyxSoC/rocket-chip/dependencies/diplomacy/diplomacy/src/diplomacy/lazymodule/LazyModuleImp.scala:100:25
   output        sdram_bundle_clk,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
                 sdram_bundle_cke,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
-                sdram_bundle_cs,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
                 sdram_bundle_ras,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
                 sdram_bundle_cas,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
                 sdram_bundle_we,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
+  output [1:0]  sdram_bundle_cs,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
   output [12:0] sdram_bundle_a,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
   output [1:0]  sdram_bundle_ba,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
-                sdram_bundle_dqm,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
-  inout  [15:0] sdram_bundle_dq	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
+  output [3:0]  sdram_bundle_dqm,	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
+  inout  [31:0] sdram_bundle_dq	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:89:26
 );
 
   sdram_top_apb msdram (	// home/passion/YSYX/ysyxSoC/src/device/SDRAM.scala:91:24
@@ -4237,14 +4237,14 @@ module ysyxSoCASIC(	// home/passion/YSYX/ysyxSoC/src/SoC.scala:59:9
   inout  [3:0]  psram_dio,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:88:19
   output        sdram_clk,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
                 sdram_cke,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
-                sdram_cs,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
                 sdram_ras,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
                 sdram_cas,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
                 sdram_we,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
+  output [1:0]  sdram_cs,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
   output [12:0] sdram_a,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
   output [1:0]  sdram_ba,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
-                sdram_dqm,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
-  inout  [15:0] sdram_dq,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
+  output [3:0]  sdram_dqm,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
+  inout  [31:0] sdram_dq,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:89:19
   output [15:0] gpio_out,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:90:18
   input  [15:0] gpio_in,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:90:18
   output [7:0]  gpio_seg_0,	// home/passion/YSYX/ysyxSoC/src/SoC.scala:90:18
@@ -5279,15 +5279,15 @@ module ysyxSoCFull(	// home/passion/YSYX/ysyxSoC/src/SoC.scala:111:9
   wire        _asic_psram_ce_n;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
   wire        _asic_sdram_clk;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
   wire        _asic_sdram_cke;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
-  wire        _asic_sdram_cs;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
+  wire [1:0]        _asic_sdram_cs;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
   wire        _asic_sdram_ras;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
   wire        _asic_sdram_cas;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
   wire        _asic_sdram_we;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
   wire [12:0] _asic_sdram_a;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
   wire [1:0]  _asic_sdram_ba;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
-  wire [1:0]  _asic_sdram_dqm;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
+  wire [3:0]  _asic_sdram_dqm;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
   wire [3:0]  _dio_wire;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:143:23
-  wire [15:0] _dq_wire;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:145:23
+  wire [31:0] _dq_wire;	// home/passion/YSYX/ysyxSoC/src/SoC.scala:145:23
   ysyxSoCASIC asic (	// home/passion/YSYX/ysyxSoC/src/SoC.scala:107:24
     .clock      (clock),
     .reset      (reset),

@@ -16,6 +16,9 @@ $(V_FILE_FINAL): $(SCALA_FILES)
 	sed -i -e 's/_\(aw\|ar\|w\|r\|b\)_\(\|bits_\)/_\1/g' $@
 	sed -i '/firrtl_black_box_resource_files.f/, $$d' $@
 
+# SDRAM bit/word expand: widen dq/dqm/cs in generated SoC
+	python3 scripts/patch_sdram_width.py $@
+
 verilog: $(V_FILE_FINAL)
 
 clean:

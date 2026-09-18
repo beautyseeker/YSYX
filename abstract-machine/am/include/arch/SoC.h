@@ -18,7 +18,7 @@
 #define PSRAM_SIZE (1 << 22) // 4MB
 
 #define SDRAM_BASE 0xa0000000
-#define SDRAM_SIZE (1 << 24) // 16MB
+#define SDRAM_SIZE (1 << 27) // 128MB (4 chips: bit + word expand)
 
 #define FSBL __attribute__((section(".text.boot"), noinline, used))
 #define SSBL __attribute__((section(".sram.loader"), noinline))
