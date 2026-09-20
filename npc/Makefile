@@ -62,9 +62,10 @@ VERILATOR_FLAGS = -MMD --build -cc -sv \
 # 波形：make TRACE=1 开启 --trace（注意磁盘；默认关闭以免 VCD 撑爆）
 VERILATOR_FLAGS += $(if $(filter 1,$(TRACE)),--trace,)
 
-# 下面这些 -I 只给仿真 C++（g++）用，与 Verilog `include 无关
+# 仿真程序运行所依赖的头文件目录
 INC_PATH  := $(NPC_ROOT)/sim/miniRV/include
 INC_PATH  += $(NEMU_HOME)/include/generated
+INC_PATH  += $(NVBOARD_HOME)/usr/include
 INCFLAGS  := $(addprefix -I,$(INC_PATH))
 
 CXXFLAGS_COMMON := $(INCFLAGS) \
@@ -79,46 +80,9 @@ CXXFLAGS_COMMON := $(INCFLAGS) \
 -include $(NPC_ROOT)/../Makefile
 
 # =============================================================================
-# NPC 仿真（DiffTest + SDB）
+# NVBoard 上板相关配置
 # =============================================================================
-SIM_TB   := $(SIM_DIR)/sim_$(TOP).cpp
-SIM_SRCS := $(shell find $(SIM_DIR)/src -name '*.cpp' -o -name '*.c' 2>/dev/null | sort)
-SIM_SRCS := $(filter-out %/npc_sim_main.cpp,$(SIM_SRCS))
 
-DIFF_SO  ?=
-SIM_ARGS  = $(IMAGE)
-SIM_ARGS += $(if $(DIFF_SO),$(if $(wildcard $(DIFF_SO)),--diff=$(DIFF_SO),),)
-SIM_ARGS += $(if $(BATCH),--batch,)
-
-LDFLAGS_SIM := -lcapstone -lreadline -lhistory -ldl
-
-$(SIM_BIN): $(VSRCS) $(SIM_TB) $(SIM_SRCS)
-	@mkdir -p $(WAVE_DIR) $(OBJ_DIR)/$(MODULE) $(dir $@)
-	$(VERILATOR) $(VERILATOR_FLAGS) \
-		--exe $(SIM_TB) $(SIM_SRCS) \
-		$(addprefix -CFLAGS ,$(CXXFLAGS_COMMON)) \
-		$(addprefix -LDFLAGS ,$(LDFLAGS_SIM)) \
-		-o $(abspath $@) \
-		$(VSRCS)
-	@echo "[OK] sim binary -> $@"
-
-.PHONY: sim run
-sim run: $(SIM_BIN)
-	$(call git_commit,"sim RTL")
-	@test -n "$(IMAGE)" || (echo "ERROR: set IMAGE=path/to/image.hex"; exit 1)
-	VCD_FILE=$(VCD_FILE) $(abspath $(SIM_BIN)) $(SIM_ARGS)
-
-# =============================================================================
-# 波形
-# =============================================================================
-.PHONY: wave show
-wave show:
-	@test -f "$(VCD_FILE)" || (echo "ERROR: no wave file: $(VCD_FILE)"; exit 1)
-	$(GTKWAVE) $(VCD_FILE)
-
-# =============================================================================
-# NVBoard 上板（此处才引入 nvboard.mk，避免污染仿真的 INC_PATH）
-# =============================================================================
 include $(NVBOARD_HOME)/scripts/nvboard.mk
 
 NXDC        := $(CONSTR_DIR)/$(MODULE).nxdc
@@ -131,21 +95,47 @@ $(AUTO_BIND): $(NXDC)
 	@mkdir -p $(dir $@)
 	python3 $(NVBOARD_HOME)/scripts/auto_pin_bind.py $< $@
 
-$(BOARD_BIN): $(VSRCS) $(BOARD_SRCS) $(NVBOARD_ARCHIVE)
-	@test -n "$(BOARD_MAIN)" || (echo "ERROR: missing $(CSRC_DIR)/$(MODULE).cpp"; exit 1)
-	@mkdir -p $(dir $@)
+# =============================================================================
+# 仿真程序构建列表
+# =============================================================================
+SIM_MAIN   := $(SIM_DIR)/sim_$(TOP).cpp
+SIM_SRCS := $(shell find $(SIM_DIR)/src -name '*.cpp' -o -name '*.c' 2>/dev/null | sort)
+SIM_SRCS := $(filter-out %/npc_sim_main.cpp,$(SIM_SRCS))
+# nvboard.mk 注入的 LDFLAGS（SDL2 等）也要链上；NVBOARD_ARCHIVE 提供 nvboard_* 实现
+LDFLAGS_SIM := -lcapstone -lreadline -lhistory -ldl $(LDFLAGS)
+
+$(SIM_BIN): $(VSRCS) $(SIM_MAIN) $(SIM_SRCS) $(AUTO_BIND) $(NVBOARD_ARCHIVE)
+	@mkdir -p $(WAVE_DIR) $(OBJ_DIR)/$(MODULE) $(dir $@)
 	$(VERILATOR) $(VERILATOR_FLAGS) \
-		--exe $(BOARD_SRCS) $(NVBOARD_ARCHIVE) \
-		$(addprefix -CFLAGS ,$(CXXFLAGS) $(CXXFLAGS_COMMON)) \
-		$(addprefix -LDFLAGS ,$(LDFLAGS)) \
+		--exe $(SIM_MAIN) $(SIM_SRCS) $(AUTO_BIND) $(NVBOARD_ARCHIVE) \
+		$(addprefix -CFLAGS ,$(CXXFLAGS_COMMON)) \
+		$(addprefix -LDFLAGS ,$(LDFLAGS_SIM)) \
 		-o $(abspath $@) \
 		$(VSRCS)
-	@echo "[OK] board binary -> $@"
+	@echo "[OK] sim binary -> $@"
 
-.PHONY: board
-board: $(BOARD_BIN)
-	$(call git_commit,"nvboard $(MODULE)")
-	$(abspath $(BOARD_BIN))
+.PHONY: sim run
+
+# =============================================================================
+# 仿真程序启动参数
+# =============================================================================
+DIFF_SO  ?=
+SIM_ARGS  = $(IMAGE)
+SIM_ARGS += $(if $(DIFF_SO),$(if $(wildcard $(DIFF_SO)),--diff=$(DIFF_SO),),)
+SIM_ARGS += $(if $(BATCH),--batch,)
+
+sim run: $(SIM_BIN)
+	$(call git_commit,"sim RTL")
+	@test -n "$(IMAGE)" || (echo "ERROR: set IMAGE=path/to/image.hex"; exit 1)
+	VCD_FILE=$(VCD_FILE) $(abspath $(SIM_BIN)) $(SIM_ARGS)
+
+# =============================================================================
+# 波形
+# =============================================================================
+.PHONY: wave show
+wave show:
+	@test -f "$(VCD_FILE)" || (echo "ERROR: no wave file: $(VCD_FILE)"; exit 1)
+	$(GTKWAVE) $(VCD_FILE)
 
 # =============================================================================
 # 杂项

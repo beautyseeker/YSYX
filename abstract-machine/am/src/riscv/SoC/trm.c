@@ -14,6 +14,7 @@ extern char _stack_top[], _stack_pointer[];
 extern char _heap_start[], _heap_end[], _etext[], _text_start[], _text_lma[];
 extern char _sram_loader_start[], _sram_loader_end[], _sram_loader_lma[];
 
+void gpio_init(void);
 void uart_init(void);
 void _trm_init(void);
 void _sram_loader(void);
@@ -70,6 +71,7 @@ SSBL static void loader_memcpy(void *dst, const void *src, size_t n) {
  * 在 SRAM 取指：Flash → PSRAM 搬运 .text / .data，再进 _trm_init。
  */
 SSBL void _sram_loader(void) {
+  gpio_init();
   uart_init();
   putstr("UART OK!\n");
   dram_test();

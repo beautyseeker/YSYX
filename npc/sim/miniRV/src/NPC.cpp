@@ -1,6 +1,8 @@
 #include "Simlator.hpp"
 #include "npc.h"
 #include "isa.h"
+#include "nvboard.h"
+#include "VysyxSoCFull.h"
 #include <cstring>
 #include <cstdlib>
 
@@ -17,6 +19,9 @@ const char *rv32_reg_name[] = {
   "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
 };
 #endif
+
+
+void nvboard_bind_all_pins(TOP_NAME* top);
 
 Simlator* Simlator::instance = nullptr;
 
@@ -61,6 +66,7 @@ void Simlator::clock_tick(uint64_t n) {
         IFDEF(CONFIG_WAVE, if (tfp) tfp->dump(statistic->sim_tick));
         statistic->sim_tick++;
         top->clock = 0; top->eval();
+        nvboard_update();
         IFDEF(CONFIG_WAVE, if (tfp) tfp->dump(statistic->sim_tick));
         statistic->sim_tick++;
     }
@@ -70,6 +76,8 @@ void Simlator::init(int argc, char **argv) {
     config->parse(argc, argv);
     // 不在这里 reset：等 init_monitor→load_mrom 装好镜像后再复位
     init_DUT_state();
+    nvboard_bind_all_pins(top);
+    nvboard_init();
 }
 
 bool Simlator::load_rom(const char* rom_path) {

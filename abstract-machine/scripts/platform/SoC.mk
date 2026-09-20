@@ -6,6 +6,7 @@ AM_SRCS := riscv/SoC/start.S \
            riscv/SoC/cte.c \
            riscv/SoC/trap.S \
            riscv/SoC/uart.c \
+           riscv/SoC/gpio.c \
            riscv/SoC/spi.c \
            riscv/SoC/mem-test.c \
            riscv/SoC/vme.c \

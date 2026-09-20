@@ -25,7 +25,11 @@ SECTIONS {
     _sram_loader_start = .;
     *(.sram.loader)
     *(.sram.loader.*)
-      /* 整个 uart.c 编译单元 */
+      /* SSBL代码 */
+    *gpio*.o(.text .text.*)
+    *gpio*.o(.rodata .rodata.* .srodata.*)
+    *gpio*.o(.data .data.* .sdata.*)
+    *gpio*.o(.bss .bss.* .sbss.*)
     *uart*.o(.text .text.*)
     *uart*.o(.rodata .rodata.* .srodata.*)
     *uart*.o(.data .data.* .sdata.*)
@@ -43,7 +47,7 @@ SECTIONS {
   .text : {
     . = ALIGN(4);
     _text_start = .;
-    *(EXCLUDE_FILE(*start*.o *uart*.o *mem-test*.o) .text*)
+    *(EXCLUDE_FILE(*start*.o *uart*.o *mem-test*.o *gpio*) .text*)
     . = ALIGN(4);
     _etext = .;
   } > SDRAM AT> FLASH

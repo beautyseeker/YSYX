@@ -20,6 +20,14 @@
 #define SDRAM_BASE 0xa0000000
 #define SDRAM_SIZE (1 << 27) // 128MB (4 chips: bit + word expand)
 
+#define GPIO_BASE 0x10002000
+typedef enum {
+    GPIO_LED = 0x0,
+    GPIO_SW = 0x4,
+    GPIO_SEGS = 0x8,
+    GPIO_UNDEF = 0xc,
+} GPIO_OFFSET_T;
+
 #define FSBL __attribute__((section(".text.boot"), noinline, used))
 #define SSBL __attribute__((section(".sram.loader"), noinline))
 
